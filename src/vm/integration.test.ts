@@ -147,4 +147,85 @@ describe('PerC Integration Tests', () => {
         const { printed } = run(code);
         expect(printed).toContain('5');
     });
+
+    it('should support println function', () => {
+        const vm = new VM();
+        const lines: string[] = [];
+
+        vm.register_foreign('print', (...args) => {
+            lines.push(args.map(a => a.to_string()).join(' '));
+            return new perc_nil();
+        });
+
+        vm.register_foreign('println', (...args) => {
+            lines.push(args.map(a => a.to_string()).join(' ') + '\n');
+            return new perc_nil();
+        });
+
+        const code = `
+            print("Hello ")
+            print("World")
+            println("!")
+            print("New line")
+        `;
+
+        vm.execute(code, parser);
+        const runner = vm.run();
+        let result = runner.next();
+        while (!result.done) result = runner.next();
+
+        expect(lines).toEqual(['Hello ', 'World', '!\n', 'New line']);
+    });
+
+    it('should support text_color_rgb function', () => {
+        const vm = new VM();
+        const colors: string[] = [];
+
+        vm.register_foreign('text_color_rgb', (r, g, b) => {
+            const rVal = (r as any).buffer[0];
+            const gVal = (g as any).buffer[0];
+            const bVal = (b as any).buffer[0];
+            colors.push(`rgb(${rVal}, ${gVal}, ${bVal})`);
+            return new perc_nil();
+        });
+
+        const code = `
+            text_color_rgb(255, 0, 0)
+            text_color_rgb(0, 255, 0)
+            text_color_rgb(0, 0, 255)
+        `;
+
+        vm.execute(code, parser);
+        const runner = vm.run();
+        let result = runner.next();
+        while (!result.done) result = runner.next();
+
+        expect(colors).toEqual(['rgb(255, 0, 0)', 'rgb(0, 255, 0)', 'rgb(0, 0, 255)']);
+    });
+
+    it('should support text_color_hsl function', () => {
+        const vm = new VM();
+        const colors: string[] = [];
+
+        vm.register_foreign('text_color_hsl', (h, s, l) => {
+            const hVal = (h as any).buffer[0];
+            const sVal = (s as any).buffer[0];
+            const lVal = (l as any).buffer[0];
+            colors.push(`hsl(${hVal}, ${sVal}%, ${lVal}%)`);
+            return new perc_nil();
+        });
+
+        const code = `
+            text_color_hsl(0, 100, 50)
+            text_color_hsl(120, 100, 50)
+            text_color_hsl(240, 100, 50)
+        `;
+
+        vm.execute(code, parser);
+        const runner = vm.run();
+        let result = runner.next();
+        while (!result.done) result = runner.next();
+
+        expect(colors).toEqual(['hsl(0, 100%, 50%)', 'hsl(120, 100%, 50%)', 'hsl(240, 100%, 50%)']);
+    });
 });

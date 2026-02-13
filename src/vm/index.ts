@@ -107,10 +107,19 @@ export class VM {
 
         // Input
         this.register_foreign('input', (prompt_str: perc_type) => {
-            const p = prompt_str instanceof perc_string ? prompt_str.value : "";
+            const p = prompt_str instanceof perc_string ? prompt_str.value : prompt_str.to_string();
             this.events.on_input_request?.(p);
             this.is_waiting_for_input = true;
             return new perc_nil(); // Placeholder, will be replaced by resume_with_input
+        });
+
+        // Text color functions - these will be overridden by the main app to connect to the console
+        this.register_foreign('text_color_rgb', (r: perc_type, g: perc_type, b: perc_type) => {
+            return new perc_nil(); // Default no-op, will be overridden
+        });
+
+        this.register_foreign('text_color_hsl', (h: perc_type, s: perc_type, l: perc_type) => {
+            return new perc_nil(); // Default no-op, will be overridden
         });
     }
 

@@ -1,4 +1,27 @@
 # PerC Language
+
+## Goals
+* the main goal is to make things easy for students to learn.
+* the target is AP Comp Sci Principles students.
+
+## Language
+* intent-based variable models to deal with typo issues.
+    * `init` to declare a new variable
+    * `change` to modify an existing variable
+* `new` used to denote reference types
+* only functions, arrays, maps, and tuples are supported
+* support for small size ints to teach about overflow issues
+* features that allow practice representing data in different ways
+    * hex/bin representations of integers
+    * rgb/rgba/hsl/hsla representations of colors
+    * raster images
+    * Python turtle/P5 graphics
+* debugger / REPL built in
+* no install necessary
+* works on ancient versions of browsers
+* aggressive fail-fast error behavior
+
+
 ## Architecture
 * PEGGY is the parser generator. see `src/perc-grammar.pegjs` for reference
 * vite is the build tool
@@ -40,7 +63,7 @@ While it executes the code, it emits events that are consumed by the debugger. T
 
 While the VM evaluates, it should mark the code editor read only. Then, it should highlight, in the code editor, the range of the source code that is being evaluated. This may or may not be possible 
 
-## UNDER WORK: INTERPRETER ARCHITECTURE
+## Interpreter architecture
 The interpreter is implemented as a stack-based Virtual Machine using a generator for its main execution loop to facilitate stepping and debugging.
 
 ### Opcodes

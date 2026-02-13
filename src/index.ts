@@ -3,7 +3,7 @@ import { Editor } from './editor/index';
 import { Debugger } from './debugger/index';
 import { Console } from './console/index';
 import { VM } from './vm/index';
-import { perc_nil, perc_string } from './vm/perc_types';
+import { perc_nil, perc_string, perc_number } from './vm/perc_types';
 // @ts-ignore
 import parser from './perc-grammar.pegjs';
 import './style.css';
@@ -199,6 +199,60 @@ $(() => {
     vm.register_foreign('print', (...args) => {
         const msg = args.map(a => (a as any).to_string()).join(' ');
         appConsole.print(msg);
+        return new perc_nil();
+    });
+
+    vm.register_foreign('println', (...args) => {
+        const msg = args.map(a => (a as any).to_string()).join(' ');
+        appConsole.println(msg);
+        return new perc_nil();
+    });
+
+    vm.register_foreign('text_color_rgb', (r, g, b) => {
+        // Validate that all arguments are numbers
+        if (!(r instanceof perc_number)) {
+            throw new Error(`text_color_rgb: first argument must be a number, got ${r.to_string()}`);
+        }
+        if (!(g instanceof perc_number)) {
+            throw new Error(`text_color_rgb: second argument must be a number, got ${g.to_string()}`);
+        }
+        if (!(b instanceof perc_number)) {
+            throw new Error(`text_color_rgb: third argument must be a number, got ${b.to_string()}`);
+        }
+        const rVal = Math.floor(r.buffer[0]);
+        const gVal = Math.floor(g.buffer[0]);
+        const bVal = Math.floor(b.buffer[0]);
+
+        // Clamp values to 0-255
+        const rClamped = Math.max(0, Math.min(255, rVal));
+        const gClamped = Math.max(0, Math.min(255, gVal));
+        const bClamped = Math.max(0, Math.min(255, bVal));
+
+        appConsole.setTextColor(`rgb(${rClamped}, ${gClamped}, ${bClamped})`);
+        return new perc_nil();
+    });
+
+    vm.register_foreign('text_color_hsl', (h, s, l) => {
+        // Validate that all arguments are numbers
+        if (!(h instanceof perc_number)) {
+            throw new Error(`text_color_hsl: first argument must be a number, got ${h.to_string()}`);
+        }
+        if (!(s instanceof perc_number)) {
+            throw new Error(`text_color_hsl: second argument must be a number, got ${s.to_string()}`);
+        }
+        if (!(l instanceof perc_number)) {
+            throw new Error(`text_color_hsl: third argument must be a number, got ${l.to_string()}`);
+        }
+        const hVal = h.buffer[0];
+        const sVal = s.buffer[0];
+        const lVal = l.buffer[0];
+
+        // Clamp hue to 0-360, saturation and lightness to 0-100
+        const hClamped = ((hVal % 360) + 360) % 360; // Handle negative values
+        const sClamped = Math.max(0, Math.min(100, sVal));
+        const lClamped = Math.max(0, Math.min(100, lVal));
+
+        appConsole.setTextColor(`hsl(${hClamped}, ${sClamped}%, ${lClamped}%)`);
         return new perc_nil();
     });
 
