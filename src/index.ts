@@ -30,10 +30,17 @@ $(() => {
         if (executionInterval) clearInterval(executionInterval);
         executionInterval = null;
         currentRunner = null;
+        editor.setReadOnly(false);
+        editor.clearHighlight();
+        $('#editor').removeClass('running-mode'); // Remove execution highlight
         $('#btn-stop').hide();
         $('#btn-step').hide();
         $('#btn-run').show();
+        $('#btn-build').show();
         debug.setStatus('Idle');
+        debug.clearCallStack();
+        debug.clearVariables();
+        debug.updateCurrentExpression("nil");
     };
 
     const runVM = async () => {
@@ -41,9 +48,13 @@ $(() => {
 
         isRunning = true;
         isPaused = false;
+        editor.setReadOnly(true);
+        editor.clearErrorHighlight();
+        $('#editor').addClass('running-mode'); // Add execution highlight
         $('#btn-run').hide();
         $('#btn-stop').show();
         $('#btn-step').hide();
+        $('#btn-build').hide();
         debug.setStatus('Running...');
 
         executionInterval = setInterval(() => {
@@ -82,16 +93,24 @@ $(() => {
             debug.setStatus('Error');
             stopVM();
         },
-        on_var_update: () => {
-            debug.updateVariables(vm.get_current_scope_values());
+        on_var_update: (name, value) => {
+            debug.updateVariable(name, value.to_string());
         },
-        on_frame_push: () => {
-            debug.updateCallStack(vm.get_call_stack_names());
-            debug.updateVariables(vm.get_current_scope_values());
+        on_frame_push: (frame) => {
+            debug.pushFrame(`${frame.name}(${frame.args.join(', ')})`);
+            debug.clearVariables(); // New frame means new scope shown
+            // We might want to show globals too, but for now just current scope
         },
         on_frame_pop: () => {
-            debug.updateCallStack(vm.get_call_stack_names());
-            debug.updateVariables(vm.get_current_scope_values());
+            debug.popFrame();
+            debug.clearVariables();
+            debug.updateVariables(vm.get_current_scope_values()); // Full refresh for parent frame
+        },
+        on_stack_top_update: (val) => {
+            debug.updateCurrentExpression(val ? val.to_string() : "nil");
+        },
+        on_node_eval: (range) => {
+            editor.highlightRange(range[0], range[1]);
         },
         on_debugger: () => {
             isPaused = true;
@@ -112,19 +131,20 @@ $(() => {
     (window as any).vm = vm;
 
     // Initial content
-    editor.setValue(`// PerC Example Code
-init x = 10;
-init y = 20;
+    // Initial content
+    editor.setValue(`// Recursive Fibonacci Example
 
-print(x + y);
-
-debugger;
-
-function test() {
-    return x * y;
+function fib(n) {
+    if (n <= 1) then { 
+        return n; 
+    }
+    return fib(n - 1) + fib(n - 2);
 }
 
-print(test());
+print("Calculating fib(5)...");
+debugger; // Break to inspect call stack
+init result = fib(5);
+print("Result: " + result);
 `);
 
     // Console / REPL Logic
@@ -173,8 +193,15 @@ print(test());
             vm.execute(code, parser);
             currentRunner = vm.run();
             runVM();
-        } catch (err) {
-            // Errors handled in events
+        } catch (err: any) {
+            // Check for Peggy location
+            if (err.location) {
+                const loc = err.location.start;
+                logToConsole(`Error at Line ${loc.line}, Col ${loc.column}: ${err.message}`, 'error');
+                editor.highlightError(loc.line, loc.column);
+            } else {
+                logToConsole(`Error: ${err.message}`, 'error');
+            }
         }
     });
 
@@ -189,12 +216,19 @@ print(test());
 
     $('#btn-build').on('click', () => {
         logToConsole("Build: Compiling...", 'log');
+        editor.clearErrorHighlight();
         const code = editor.getValue();
         try {
             parser.parse(code);
             logToConsole("Build: No errors found.", 'log');
         } catch (e: any) {
-            logToConsole(`Build Error: ${e.message}`, 'error');
+            if (e.location) {
+                const loc = e.location.start;
+                logToConsole(`Build Error at Line ${loc.line}, Col ${loc.column}: ${e.message}`, 'error');
+                editor.highlightError(loc.line, loc.column);
+            } else {
+                logToConsole(`Build Error: ${e.message}`, 'error');
+            }
         }
     });
 

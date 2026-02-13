@@ -14,6 +14,8 @@ ace.config.set('basePath', '/node_modules/ace-builds/src-noconflict');
  */
 export class Editor {
     private editor: ace.Ace.Editor;
+    private currentMarkerId: number | null = null;
+    private currentErrorMarkerId: number | null = null;
 
     constructor(containerId: string) {
         this.editor = ace.edit(containerId);
@@ -91,5 +93,61 @@ export class Editor {
 
     public setReadOnly(readOnly: boolean) {
         this.editor.setReadOnly(readOnly);
+    }
+
+    public highlightRange(start: number, end: number) {
+        const session = this.editor.session;
+        const doc = session.getDocument();
+
+        // Convert character offsets to row/column
+        const startPos = doc.indexToPosition(start, 0);
+        const endPos = doc.indexToPosition(end, 0);
+
+        // Clear previous highlight
+        this.clearHighlight();
+
+        // Create Ace Range
+        // Create Ace Range
+        const Range = (ace as any).require("ace/range").Range;
+        const range = new Range(startPos.row, startPos.column, endPos.row, endPos.column);
+
+        // Add marker. "text" means it stays with the text. 
+        // true means it's in the foreground
+        this.currentMarkerId = session.addMarker(range, "eval-marker", "text", true);
+
+        // Scroll to the highlight if not visible
+        this.editor.scrollToLine(startPos.row, true, true, () => { });
+    }
+
+    public clearHighlight() {
+        if (this.currentMarkerId !== null) {
+            this.editor.session.removeMarker(this.currentMarkerId);
+            this.currentMarkerId = null;
+        }
+    }
+
+    public highlightError(line: number, column: number) {
+        const session = this.editor.session;
+        this.clearErrorHighlight();
+
+        // Ace ranges are 0-indexed rows/cols
+        // Peggy usually returns 1-indexed lines and columns
+        const row = line - 1;
+        const col = column - 1;
+
+        const Range = (ace as any).require("ace/range").Range;
+
+        // Highlight the specific character or a safe fallback range
+        const range = new Range(row, col, row, col + 1);
+
+        this.currentErrorMarkerId = session.addMarker(range, "error-marker", "text", true);
+        this.editor.scrollToLine(row, true, true, () => { });
+    }
+
+    public clearErrorHighlight() {
+        if (this.currentErrorMarkerId !== null) {
+            this.editor.session.removeMarker(this.currentErrorMarkerId);
+            this.currentErrorMarkerId = null;
+        }
     }
 }

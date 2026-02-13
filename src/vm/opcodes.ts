@@ -83,6 +83,7 @@ export interface ret_op extends base_op {
 export interface make_closure_op extends base_op {
     type: 'make_closure';
     addr: number;
+    name: string;
     captured: string[];
 }
 

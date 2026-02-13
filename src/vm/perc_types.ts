@@ -209,11 +209,13 @@ export class perc_map extends perc_type {
 
 export class perc_closure extends perc_type {
     addr: number;
+    name: string;
     captured: any; // Ideally Scope, but using any to avoid circularity if not careful
-    constructor(addr: number, captured: any) {
+    constructor(addr: number, captured: any, name: string = "anonymous") {
         super();
         this.addr = addr;
         this.captured = captured;
+        this.name = name;
     }
-    to_string(): string { return `<function at ${this.addr}>`; }
+    to_string(): string { return this.name === "anonymous" ? `<function at ${this.addr}>` : `<function ${this.name}>`; }
 }

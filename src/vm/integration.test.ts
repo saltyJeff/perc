@@ -132,4 +132,19 @@ describe('PerC Integration Tests', () => {
 
         expect(results).toEqual([10]);
     });
+
+    it('should run recursive Fibonacci (sample code)', () => {
+        const code = `
+            function fib(n) {
+                if (n <= 1) then {
+                    return n
+                }
+                return fib(n - 1) + fib(n - 2)
+            }
+            init result = fib(5)
+            print(result)
+        `;
+        const { printed } = run(code);
+        expect(printed).toContain('5');
+    });
 });

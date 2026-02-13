@@ -11,6 +11,7 @@ export interface VMEventMap {
     on_node_eval: (range: [number, number]) => void;
     on_debugger: () => void;
     on_error: (err: string) => void;
+    on_stack_top_update: (val: perc_type | null) => void;
 }
 
 export class Scope {
@@ -46,11 +47,15 @@ export class Frame {
     scope: Scope;
     ret_addr: number;
     stack_start: number;
+    name: string;
+    args: string[];
 
-    constructor(scope: Scope, ret_addr: number, stack_start: number) {
+    constructor(scope: Scope, ret_addr: number, stack_start: number, name: string = "global", args: string[] = []) {
         this.scope = scope;
         this.ret_addr = ret_addr;
         this.stack_start = stack_start;
+        this.name = name;
+        this.args = args;
     }
 }
 
@@ -91,9 +96,11 @@ export class VM {
     }
 
     get_call_stack_names(): string[] {
-        const names = this.call_stack.map((_, i) => `Frame ${i}`);
-        names.push("Current Frame");
-        return names;
+        const frames = [...this.call_stack, this.current_frame];
+        return frames.map(f => {
+            const argsStr = f.args.length > 0 ? f.args.join(", ") : "";
+            return `${f.name}(${argsStr})`;
+        });
     }
 
     get_current_scope_values(): Record<string, string> {
@@ -198,9 +205,20 @@ export class VM {
                         const func = this.pop();
                         if (!(func instanceof perc_closure)) throw new Error("Object is not callable");
 
-                        // Arguments are already on the stack. The function body will 'init' them.
+                        // Arguments are already on the stack. Current frame is where they are.
+                        // However, we want to capture their values for the debugger.
+                        // The stack has [..., arg0, arg1, ..., argN]
+                        const call_args: string[] = [];
+                        const arg_count = op.nargs;
+                        for (let i = 0; i < arg_count; i++) {
+                            // Elements were pushed in order, so the top of stack is the last arg.
+                            // We peek at them relative to the end of the stack.
+                            const val = this.stack[this.stack.length - arg_count + i];
+                            if (val) call_args.push(val.to_string());
+                        }
+
                         const call_scope = new Scope(func.captured as any);
-                        const new_frame = new Frame(call_scope, this.ip + 1, this.stack.length);
+                        const new_frame = new Frame(call_scope, this.ip + 1, this.stack.length, func.name, call_args);
                         this.call_stack.push(this.current_frame);
                         this.current_frame = new_frame;
                         this.ip = func.addr;
@@ -219,7 +237,7 @@ export class VM {
                         this.events.on_frame_pop?.();
                         continue;
                     case 'make_closure':
-                        this.push(new perc_closure(op.addr, this.current_frame.scope));
+                        this.push(new perc_closure(op.addr, this.current_frame.scope, op.name));
                         break;
                     case 'call_foreign':
                         const for_args: perc_type[] = [];
@@ -315,12 +333,21 @@ export class VM {
     private push(val: perc_type) {
         this.stack.push(val);
         this.events.on_stack_push?.(val);
+        this.events.on_stack_top_update?.(val);
     }
 
     private pop(): perc_type {
         if (this.stack.length === 0) throw new Error("Stack underflow");
         const v = this.stack.pop()!;
         if (v instanceof perc_err) throw new Error(v.value);
+
+        // Notify top update
+        if (this.stack.length > 0) {
+            this.events.on_stack_top_update?.(this.stack[this.stack.length - 1]);
+        } else {
+            this.events.on_stack_top_update?.(null);
+        }
+
         return v;
     }
 }

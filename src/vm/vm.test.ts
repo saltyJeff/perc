@@ -44,7 +44,7 @@ describe('PerC Virtual Machine', () => {
 
     it('should calculate Fibonacci(6) recursively', () => {
         const fib_code: opcode[] = [
-            /* 0 */ { type: 'make_closure', addr: 6, captured: [], src_start: 0, src_end: 0 },
+            /* 0 */ { type: 'make_closure', addr: 6, captured: [], name: 'fib', src_start: 0, src_end: 0 },
             /* 1 */ { type: 'init', name: 'fib', src_start: 0, src_end: 0 },
             /* 2 */ { type: 'push', imm: new perc_number(6), src_start: 0, src_end: 0 },
             /* 3 */ { type: 'load', name: 'fib', src_start: 0, src_end: 0 },
@@ -108,7 +108,7 @@ describe('PerC Virtual Machine', () => {
             /* 24*/ { type: 'jump', addr: 27, src_start: 0, src_end: 0 },
             /* 25*/ { type: 'push', imm: new perc_string("Small"), src_start: 0, src_end: 0 },
             /* 26*/ { type: 'call_foreign', name: 'print', nargs: 1, src_start: 0, src_end: 0 },
-            /* 27*/ { type: 'make_closure', addr: 32, captured: ['sum'], src_start: 0, src_end: 0 },
+            /* 27*/ { type: 'make_closure', addr: 32, captured: ['sum'], name: 'getSumClosure', src_start: 0, src_end: 0 },
             /* 28*/ { type: 'init', name: 'getSumClosure', src_start: 0, src_end: 0 },
             /* 29*/ { type: 'load', name: 'getSumClosure', src_start: 0, src_end: 0 },
             /* 30*/ { type: 'call', nargs: 0, src_start: 0, src_end: 0 },

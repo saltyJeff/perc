@@ -482,3 +482,24 @@ button.icon-btn:hover {
   font-family: monospace;
   outline: none;
 }
+
+/* Execution Highlight */
+.ace_editor.running-mode {
+  border: 2px solid var(--traffic-red);
+  box-sizing: border-box;
+  /* Ensure border doesn't break layout */
+}
+
+.eval-marker {
+  position: absolute;
+  background-color: rgba(255, 95, 86, 0.3);
+  border-bottom: 2px solid #ff5f56;
+  z-index: 20;
+}
+
+.error-marker {
+  position: absolute;
+  background-color: rgba(255, 0, 0, 0.4) !important;
+  border-bottom: 2px solid red !important;
+  z-index: 20;
+}

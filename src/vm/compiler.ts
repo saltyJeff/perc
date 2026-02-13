@@ -188,7 +188,12 @@ export class Compiler {
                 (this.opcodes[jumpOverFuncIdx] as any).addr = this.opcodes.length;
 
                 // TODO: Captured variables analysis
-                this.emit({ type: 'make_closure', addr: funcStartAddr, captured: [] }, node);
+                this.emit({
+                    type: 'make_closure',
+                    addr: funcStartAddr,
+                    captured: [],
+                    name: node.type === "FunctionDeclaration" ? node.name : "anonymous"
+                }, node);
                 if (node.type === "FunctionDeclaration") {
                     this.emit({ type: 'init', name: node.name }, node);
                 }
