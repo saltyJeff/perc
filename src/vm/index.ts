@@ -131,7 +131,9 @@ export class VM {
         this.is_waiting_for_input = false;
         this.in_debug_mode = false;
         const global_scope = new Scope();
-        this.current_frame = new Frame(global_scope, -1, 0);
+        this.current_frame = new Frame(global_scope, -1, 0, "global");
+        // Notify debugger of the initial global frame so it can be populated
+        this.events.on_frame_push?.(this.current_frame);
     }
 
     execute(source: string, parser: any) {
@@ -168,10 +170,14 @@ export class VM {
         return [...this.call_stack, this.current_frame];
     }
 
-    get_current_scope_values(): Record<string, { value: perc_type, range: [number, number] | null }> {
+    get_scope_variables(start_scope: Scope): Record<string, { value: perc_type, range: [number, number] | null }> {
         const res: Record<string, { value: perc_type, range: [number, number] | null }> = {};
-        let s: Scope | null = this.current_frame.scope;
+        let s: Scope | null = start_scope;
         while (s) {
+            // If we are at the global scope (parent is null) AND we didn't start at global, 
+            // stop traversal to avoid duplicating globals in local frames.
+            if (s.parent === null && s !== start_scope) break;
+
             for (const [k, v] of s.values.entries()) {
                 if (!(k in res)) {
                     res[k] = {
@@ -183,6 +189,10 @@ export class VM {
             s = s.parent;
         }
         return res;
+    }
+
+    get_current_scope_values(): Record<string, { value: perc_type, range: [number, number] | null }> {
+        return this.get_scope_variables(this.current_frame.scope);
     }
 
     set_events(events: Partial<VMEventMap>) {

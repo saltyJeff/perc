@@ -162,13 +162,13 @@ $(() => {
         },
         on_frame_push: (frame) => {
             debug.pushFrame(frame.name, frame.args);
-            debug.clearVariables(); // New frame means new scope shown
-            // We might want to show globals too, but for now just current scope
+            // debug.clearVariables(); // Removed
+            debug.updateTopFrameVariables(vm.get_current_scope_values()); // Populate new frame
         },
         on_frame_pop: () => {
             debug.popFrame();
-            debug.clearVariables();
-            debug.updateVariables(vm.get_current_scope_values()); // Full refresh for parent frame
+            // debug.clearVariables(); // Removed
+            debug.updateTopFrameVariables(vm.get_current_scope_values()); // Refresh parent frame
         },
         on_stack_top_update: (val) => {
             debug.updateCurrentExpression(val);
@@ -186,13 +186,18 @@ $(() => {
         },
         on_state_dump: () => {
             debug.clearCallStack();
-            debug.clearVariables(); // Clear global vars view
+            // debug.clearVariables(); // Removed
             const frames = vm.get_frames();
             frames.forEach(f => {
                 debug.pushFrame(f.name, f.args);
+                // Populate THIS frame with its visible variables (excluding globals unless it IS global)
+                if (f.scope) {
+                    const vars = vm.get_scope_variables(f.scope);
+                    debug.updateTopFrameVariables(vars);
+                }
             });
-            // Update variables for current scope
-            debug.updateVariables(vm.get_current_scope_values());
+            // Update variables for current scope (Sidebar)
+            debug.updateTopFrameVariables(vm.get_current_scope_values());
         }
     });
 

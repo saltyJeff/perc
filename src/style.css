@@ -411,7 +411,7 @@ body.light-theme .zoom-control {
 }
 
 #debugger-pane {
-  width: 400px;
+  width: min(30vw, 500px);
 }
 
 #console-pane {

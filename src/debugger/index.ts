@@ -31,10 +31,7 @@ export class Debugger {
                     this.createDebugTable(['Value', 'Type'])
                 )
             ),
-            $('<div>', { class: 'debug-section', id: 'variables' }).append(
-                $('<h4>', { text: 'Variables' }),
-                $('<div>', { class: 'vars-content', text: 'None' })
-            ),
+            // Variables pane removed - using Call Stack frames instead
             $('<div>', { class: 'debug-section', id: 'call-stack' }).append(
                 $('<h4>', { text: 'Call Stack' }),
                 $('<div>', { class: 'stack-content', text: 'Empty' })
@@ -141,14 +138,21 @@ export class Debugger {
                 else $td.append(content);
             }
 
-            // Assign columns classes based on index
-            // 0: Name, 1: Value, 2: Type
-            if (i === 0) $td.addClass('col-name');
-            else if (i === 1) $td.addClass('col-value');
-            else if (i === 2) $td.addClass('col-type');
+            const cellsInRow = cells.length;
+
+            // Assign columns classes based on index and column count
+            // 2 cols: Value, Type
+            // 3 cols: Name, Value, Type
+            if (cellsInRow === 2) {
+                if (i === 0) $td.addClass('col-value');
+                else if (i === 1) $td.addClass('col-type');
+            } else {
+                if (i === 0) $td.addClass('col-name');
+                else if (i === 1) $td.addClass('col-value');
+                else if (i === 2) $td.addClass('col-type');
+            }
 
             // Add resizer if not the last column
-            const cellsInRow = cells.length;
             if (i < cellsInRow - 1) {
                 $td.append($('<div>', { class: 'col-resizer' }));
             }
@@ -180,8 +184,9 @@ export class Debugger {
             const frameId = `frame-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
             // Create details with summary
+            const displayName = name === 'global' ? name : `${name}(${args.join(', ')})`;
             const details = $('<details>', { id: frameId, open: true })
-                .append($('<summary>', { text: `${name}(${args.join(', ')})` }))
+                .append($('<summary>', { text: displayName }))
                 .append(this.createDebugTable(['Name', 'Value', 'Type'])); // 3 cols
 
             // Prepend new frame
@@ -204,6 +209,10 @@ export class Debugger {
         this.updateGlobalVariable(name, value, range);
 
         // Update current frame if active
+        this.addVariableToTopFrame(name, value, range);
+    }
+
+    public addVariableToTopFrame(name: string, value: perc_type, range: [number, number] | null) {
         // Find top-most frame details
         const stackEl = this.element.find('#call-stack .stack-content');
         if (stackEl.children().length > 0 && stackEl.text() !== "Empty") {
@@ -306,6 +315,22 @@ export class Debugger {
                 ]));
             }
             varsEl.empty().append($table);
+        }
+    }
+
+    // Renamed/Repurposed to update top frame variables in bulk
+    public updateTopFrameVariables(vars: Record<string, { value: perc_type, range: [number, number] | null }>) {
+        if (Object.keys(vars).length === 0) return;
+
+        const stackEl = this.element.find('#call-stack .stack-content');
+        if (stackEl.children().length > 0 && stackEl.text() !== "Empty") {
+            const frameDetails = stackEl.children().first();
+            const tbody = frameDetails.find('tbody');
+            if (tbody.length) {
+                for (const [k, data] of Object.entries(vars)) {
+                    this.upsertTableRow(tbody, k, data.value, data.range);
+                }
+            }
         }
     }
 
