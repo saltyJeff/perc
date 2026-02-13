@@ -4,6 +4,8 @@ import ace from "ace-builds";
 const TextHighlightRules = (ace as any).require("ace/mode/text_highlight_rules").TextHighlightRules;
 const TextMode = (ace as any).require("ace/mode/text").Mode;
 
+
+
 export class PercHighlightRules extends TextHighlightRules {
     constructor() {
         super();
@@ -71,11 +73,70 @@ export class PercHighlightRules extends TextHighlightRules {
     }
 }
 
+class MatchingBraceOutdent {
+    checkOutdent(line: string, input: string) {
+        if (!/^\s+$/.test(line))
+            return false;
+        return /^\s*\}/.test(input);
+    }
+
+    autoOutdent(doc: any, row: number) {
+        var line = doc.getLine(row);
+        var match = line.match(/^(\s*\})/);
+
+        if (!match) return 0;
+
+        var column = match[1].length;
+        var openBracePos = doc.findMatchingBracket({ row: row, column: column });
+
+        if (!openBracePos || openBracePos.row == row) return 0;
+
+        const Range = (ace as any).require("ace/range").Range;
+        var indent = this.$getIndent(doc.getLine(openBracePos.row));
+        doc.replace(new Range(row, 0, row, column - 1), indent);
+    }
+
+    $getIndent(line: string) {
+        return line.match(/^\s*/)?.[0] || "";
+    }
+}
+
 export class Mode extends TextMode {
+    $outdent: MatchingBraceOutdent;
+
     constructor() {
         super();
         this.HighlightRules = PercHighlightRules;
+        this.$outdent = new MatchingBraceOutdent();
         this.$id = "ace/mode/perc";
+    }
+
+    getNextLineIndent(state: string, line: string, tab: string) {
+        let indent = this.$getIndent(line);
+
+        const tokenizedLine = this.getTokenizer().getLineTokens(line, state);
+        const tokens = tokenizedLine.tokens;
+
+        if (tokens.length && tokens[tokens.length - 1].type == "comment") {
+            return indent;
+        }
+
+        if (state == "start") {
+            const match = line.match(/^.*[\{\(\[]\s*$/);
+            if (match) {
+                indent += tab;
+            }
+        }
+
+        return indent;
+    }
+
+    checkOutdent(_state: string, line: string, input: string) {
+        return this.$outdent.checkOutdent(line, input);
+    }
+
+    autoOutdent(_state: string, doc: any, row: number) {
+        this.$outdent.autoOutdent(doc, row);
     }
 
     getKeywords() {

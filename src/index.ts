@@ -1,11 +1,16 @@
 import $ from 'jquery';
 import { Editor } from './editor/index';
-import { Debugger } from './debugger';
+import { Debugger } from './debugger/index';
+import { Console } from './console/index';
 import { VM } from './vm/index';
-import { perc_nil } from './vm/perc_types';
+import { perc_nil, perc_string } from './vm/perc_types';
 // @ts-ignore
 import parser from './perc-grammar.pegjs';
 import './style.css';
+import './console/console.css';
+import './editor/editor.css';
+import './debugger/debugger.css';
+import './ui/perc_value.css';
 
 console.log('PerC IDE initializing...');
 
@@ -16,32 +21,63 @@ $(() => {
     // Initialize Components
     const editor = new Editor('editor');
     const debug = new Debugger('debugger-content');
+    const appConsole = new Console('console-output', 'repl-input');
     const vm = new VM();
 
     // Wiring VM to Debugger
     let currentRunner: Generator<void, void, void> | null = null;
     let isRunning = false;
     let isPaused = false;
+    let isWaitingForInput = false;
     let executionInterval: any = null;
+
+    const updateToolbarState = (state: 'idle' | 'running' | 'paused') => {
+        const btnRun = $('#btn-run');
+        const btnBuild = $('#btn-build');
+        const btnStop = $('#btn-stop');
+        const btnStep = $('#btn-step');
+        const btnContinue = $('#btn-continue');
+
+        switch (state) {
+            case 'idle':
+                btnRun.show();
+                btnBuild.show();
+                btnStop.hide();
+                btnStep.hide();
+                btnContinue.hide();
+                break;
+            case 'running':
+                btnRun.hide();
+                btnBuild.hide();
+                btnStop.show();
+                btnStep.hide();
+                btnContinue.hide();
+                break;
+            case 'paused':
+                btnRun.hide();
+                btnBuild.hide();
+                btnStop.show();
+                btnStep.show();
+                btnContinue.show();
+                break;
+        }
+    };
 
     const stopVM = () => {
         isRunning = false;
         isPaused = false;
+        isWaitingForInput = false;
         if (executionInterval) clearInterval(executionInterval);
         executionInterval = null;
         currentRunner = null;
-        editor.setReadOnly(false);
-        editor.clearHighlight();
-        $('#editor').removeClass('running-mode'); // Remove execution highlight
-        $('#btn-stop').hide();
-        $('#btn-step').hide();
-        $('#btn-continue').hide();
-        $('#btn-run').show();
-        $('#btn-build').show();
+        editor.enter_idle_mode();
+        updateToolbarState('idle');
         debug.setStatus('Idle');
         debug.clearCallStack();
         debug.clearVariables();
-        debug.updateCurrentExpression("nil");
+        debug.updateCurrentExpression(null);
+        $('#debugger-pane').addClass('collapsed');
+        $('.pane').each(function () { updatePaneButtons($(this)); });
     };
 
     const runVM = async () => {
@@ -49,18 +85,29 @@ $(() => {
 
         isRunning = true;
         isPaused = false;
-        editor.setReadOnly(true);
-        editor.clearErrorHighlight();
-        $('#editor').addClass('running-mode'); // Add execution highlight
-        $('#btn-run').hide();
-        $('#btn-stop').show();
-        $('#btn-step').hide();
-        $('#btn-continue').hide();
-        $('#btn-build').hide();
+        // Don't clear isWaitingForInput here if we are resuming from input
+        if (!vm.is_waiting_for_input) isWaitingForInput = false;
+
+        // Don't clear isWaitingForInput here if we are resuming from input
+        if (!vm.is_waiting_for_input) isWaitingForInput = false;
+
+        editor.enter_run_mode();
+        editor.enter_run_mode();
+        updateToolbarState('running');
         debug.setStatus('Running...');
+        $('#debugger-pane').addClass('collapsed');
+        $('.pane').each(function () { updatePaneButtons($(this)); });
 
         executionInterval = setInterval(() => {
-            if (!isRunning || isPaused) {
+            if (!isRunning || isPaused || isWaitingForInput) {
+                clearInterval(executionInterval);
+                return;
+            }
+
+            // Check VM internal wait state too
+            if (vm.is_waiting_for_input) {
+                isWaitingForInput = true;
+                debug.setStatus('Waiting for Input...');
                 clearInterval(executionInterval);
                 return;
             }
@@ -73,6 +120,14 @@ $(() => {
                     stopVM();
                     return;
                 }
+
+                // If instruction triggered input wait
+                if (vm.is_waiting_for_input) {
+                    isWaitingForInput = true;
+                    debug.setStatus('Waiting for Input...');
+                    return; // Loop will restart next interval, catch wait state and stop
+                }
+
                 if (isPaused) return; // Hit a breakpoint during batch
             }
         }, 0);
@@ -86,15 +141,22 @@ $(() => {
             stopVM();
         } else {
             debug.setStatus('Paused (Breakpoint)');
+            updateToolbarState('paused'); // Ensure buttons are correct for stepping
         }
     };
 
     vm.set_events({
         on_error: (msg) => {
-            logToConsole(`Error: ${msg}`, 'error');
+            appConsole.error(`Error: ${msg}`);
             debug.setStatus('Error');
             stopVM();
         },
+        on_input_request: (prompt) => {
+            appConsole.print(prompt || "Input required:");
+            appConsole.print("Type input below and press Enter...");
+            appConsole.focusInput();
+        },
+        // ... other events ...
         on_var_update: (name, value) => {
             debug.updateVariable(name, value);
         },
@@ -109,22 +171,34 @@ $(() => {
             debug.updateVariables(vm.get_current_scope_values()); // Full refresh for parent frame
         },
         on_stack_top_update: (val) => {
-            debug.updateCurrentExpression(val ? val.to_string() : "nil");
+            debug.updateCurrentExpression(val);
         },
         on_node_eval: (range) => {
             editor.highlightRange(range[0], range[1]);
         },
         on_debugger: () => {
             isPaused = true;
-            $('#btn-step').show();
-            $('#btn-continue').show();
+            updateToolbarState('paused');
             debug.setStatus('Paused (Debugger)');
+            $('#debugger-pane').removeClass('collapsed');
+            $('.pane').each(function () { updatePaneButtons($(this)); });
+            editor.enter_debug_mode();
+        },
+        on_state_dump: () => {
+            debug.clearCallStack();
+            debug.clearVariables(); // Clear global vars view
+            const frames = vm.get_frames();
+            frames.forEach(f => {
+                debug.pushFrame(f.name, f.args);
+            });
+            // Update variables for current scope
+            debug.updateVariables(vm.get_current_scope_values());
         }
     });
 
     vm.register_foreign('print', (...args) => {
         const msg = args.map(a => (a as any).to_string()).join(' ');
-        logToConsole(msg, 'log');
+        appConsole.print(msg);
         return new perc_nil();
     });
 
@@ -132,6 +206,7 @@ $(() => {
     (window as any).editor = editor;
     (window as any).debug = debug;
     (window as any).vm = vm;
+    (window as any).appConsole = appConsole;
 
     // Initial content
     // Initial content
@@ -150,36 +225,37 @@ init result = fib(5);
 print("Result: " + result);
 `);
 
-    // Console / REPL Logic
-    const $consoleOut = $('#console-output');
-    function logToConsole(msg: string, type: 'log' | 'error' | 'input' = 'log') {
-        const $entry = $('<div>').addClass('console-entry').addClass(type).text(msg);
-        $consoleOut.append($entry);
-        $consoleOut.scrollTop($consoleOut[0].scrollHeight);
-    };
-
     $('#repl-input').on('keydown', (e) => {
         if (e.key === 'Enter') {
             const input = $(e.target).val() as string;
-            if (!input.trim()) return;
+            // Allow empty input? Yes.
 
-            logToConsole(`> ${input}`, 'input');
+            appConsole.input(`> ${input}`);
             $(e.target).val('');
 
-            try {
-                // For REPL, we want to maintain the current VM state, 
-                // but execute new code.
-                vm.execute(input, parser);
-                currentRunner = vm.run();
+            if (isWaitingForInput && currentRunner) {
+                // Resume VM
+                vm.resume_with_input(new perc_string(input));
+                isWaitingForInput = false;
                 runVM();
-            } catch (err: any) {
-                // Errors already logged by on_error event
+                return;
+            }
+
+            if (input.trim()) {
+                try {
+                    // For REPL, we execute new code
+                    vm.execute(input, parser);
+                    currentRunner = vm.run();
+                    runVM();
+                } catch (err: any) {
+                    // Errors already logged
+                }
             }
         }
     });
 
     $('#console-clear').on('click', () => {
-        $consoleOut.empty();
+        appConsole.clear();
     });
 
     // --- Execution Control ---
@@ -190,26 +266,27 @@ print("Result: " + result);
             return;
         }
 
-        logToConsole("Run: Starting execution...", 'log');
+        appConsole.status("Run: Starting execution...");
         const code = editor.getValue();
         try {
             vm.execute(code, parser);
+            vm.in_debug_mode = false;
             currentRunner = vm.run();
             runVM();
         } catch (err: any) {
             // Check for Peggy location
             if (err.location) {
                 const loc = err.location.start;
-                logToConsole(`Error at Line ${loc.line}, Col ${loc.column}: ${err.message}`, 'error');
+                appConsole.error(`Error at Line ${loc.line}, Col ${loc.column}: ${err.message}`);
                 editor.highlightError(loc.line, loc.column);
             } else {
-                logToConsole(`Error: ${err.message}`, 'error');
+                appConsole.error(`Error: ${err.message}`);
             }
         }
     });
 
     $('#btn-stop').on('click', () => {
-        logToConsole("Stop: Execution halted.", 'log');
+        appConsole.status("Stop: Execution halted.");
         stopVM();
     });
 
@@ -218,23 +295,26 @@ print("Result: " + result);
     });
 
     $('#btn-continue').on('click', () => {
+        vm.in_debug_mode = false;
+        $('#debugger-pane').addClass('collapsed');
+        $('.pane').each(function () { updatePaneButtons($(this)); });
         runVM(); // Resume execution
     });
 
     $('#btn-build').on('click', () => {
-        logToConsole("Build: Compiling...", 'log');
+        appConsole.status("Build: Compiling...");
         editor.clearErrorHighlight();
         const code = editor.getValue();
         try {
             parser.parse(code);
-            logToConsole("Build: No errors found.", 'log');
+            appConsole.status("Build: No errors found.");
         } catch (e: any) {
             if (e.location) {
                 const loc = e.location.start;
-                logToConsole(`Build Error at Line ${loc.line}, Col ${loc.column}: ${e.message}`, 'error');
+                appConsole.error(`Build Error at Line ${loc.line}, Col ${loc.column}: ${e.message}`);
                 editor.highlightError(loc.line, loc.column);
             } else {
-                logToConsole(`Build Error: ${e.message}`, 'error');
+                appConsole.error(`Build Error: ${e.message}`);
             }
         }
     });
@@ -406,5 +486,5 @@ print("Result: " + result);
         $(this).text(`Wrap: ${isWrap ? 'On' : 'Off'}`);
     });
 
-    logToConsole("Welcome to PerC IDE v0.1", 'log');
+    appConsole.status("Welcome to PerC IDE v0.1");
 });

@@ -150,4 +150,24 @@ export class Editor {
             this.currentErrorMarkerId = null;
         }
     }
+
+    public enter_run_mode() {
+        this.setReadOnly(true);
+        this.clearErrorHighlight();
+        this.editor.container.classList.add('running-mode');
+    }
+
+    public enter_debug_mode() {
+        // Debug mode assumes we are already in running mode (read-only)
+        // But we might want to add a specific class for debug visuals if needed
+        this.editor.container.classList.add('debug-mode');
+    }
+
+    public enter_idle_mode() {
+        this.setReadOnly(false);
+        this.clearHighlight();
+        this.clearErrorHighlight();
+        this.editor.container.classList.remove('running-mode');
+        this.editor.container.classList.remove('debug-mode');
+    }
 }

@@ -1,0 +1,45 @@
+/* Console Styles */
+#console-output {
+    padding: 5px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 0.9em;
+    white-space: pre-wrap;
+}
+
+.console-entry {
+    margin-bottom: 2px;
+}
+
+.console-entry.log {
+    color: var(--log-color);
+}
+
+.console-entry.error {
+    color: #f48771;
+}
+
+.console-entry.input {
+    color: var(--input-color);
+}
+
+.console-entry.status {
+    color: var(--status-color);
+    font-weight: bold;
+}
+
+.console-input-container {
+    padding: 5px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+#repl-input {
+    background: transparent;
+    border: none;
+    color: inherit;
+    flex: 1;
+    font-family: monospace;
+    outline: none;
+}

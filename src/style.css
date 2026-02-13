@@ -4,9 +4,7 @@
   --accent-color: #007acc;
   --panel-bg-dark: #252526;
   --panel-bg-light: #f3f3f3;
-  --traffic-red: #ff5f56;
-  --traffic-yellow: #ffbd2e;
-  --traffic-green: #27c93f;
+
 }
 
 body.dark-theme {
@@ -20,6 +18,7 @@ body.dark-theme {
   --input-fg: #d4d4d4;
   --log-color: #d4d4d4;
   --input-color: #aaaaaa;
+  --status-color: #4EC9B0;
 }
 
 body.light-theme {
@@ -33,6 +32,20 @@ body.light-theme {
   --input-fg: #333333;
   --log-color: #333333;
   --input-color: #555555;
+  --status-color: #008000;
+}
+
+.console-entry.log {
+  color: var(--log-color);
+}
+
+.console-entry.input {
+  color: var(--input-color);
+}
+
+.console-entry.status {
+  color: var(--status-color);
+  font-weight: bold;
 }
 
 body,
@@ -68,6 +81,15 @@ html {
   flex-shrink: 0;
   user-select: none;
   font-size: 14px;
+}
+
+#m.perc-num .type {
+  color: #888;
+  font-size: 0.8em;
+  margin-right: 8px;
+  min-width: 24px;
+  /* Ensure some space even if squeezed */
+  user-select: none;
 }
 
 #menubar .logo {
@@ -414,139 +436,14 @@ body.light-theme .zoom-control {
   overflow: hidden;
 }
 
-/* Ace Editor override */
-#editor {
-  width: 100%;
-  height: 100%;
-}
-
 /* Debugger Styles */
-.debug-section {
-  padding: 10px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.debug-section h4 {
-  margin: 0 0 5px 0;
-  font-size: 0.9em;
-  opacity: 0.8;
-}
+/* Moved to debugger/debugger.css */
 
 /* Console Styles */
-#console-output {
-  padding: 5px;
-  font-family: 'Consolas', 'Courier New', monospace;
-  font-size: 0.9em;
-  white-space: pre-wrap;
-}
-
-.console-entry {
-  margin-bottom: 2px;
-}
-
-.console-entry.error {
-  color: #f48771;
-}
-
-.console-entry.log {
-  color: var(--log-color);
-}
-
-.console-entry.input {
-  color: var(--input-color);
-}
-
-.controls-group {
-  display: flex;
-  gap: 5px;
-}
-
-button.icon-btn {
-  background: transparent;
-  border: none;
-  color: inherit;
-  cursor: pointer;
-  font-size: 1.2em;
-  padding: 0 5px;
-}
-
-button.icon-btn:hover {
-  color: var(--accent-color);
-}
-
-#repl-input {
-  background: transparent;
-  border: none;
-  color: inherit;
-  width: 90%;
-  font-family: monospace;
-  outline: none;
-}
+/* Moved to console/console.css */
 
 /* Execution Highlight */
-.ace_editor.running-mode {
-  border: 2px solid var(--traffic-red);
-  box-sizing: border-box;
-  /* Ensure border doesn't break layout */
-}
-
-.eval-marker {
-  position: absolute;
-  background-color: rgba(255, 95, 86, 0.3);
-  border-bottom: 2px solid #ff5f56;
-  z-index: 20;
-}
-
-.error-marker {
-  position: absolute;
-  background-color: rgba(255, 0, 0, 0.4) !important;
-  border-bottom: 2px solid red !important;
-  z-index: 20;
-}
+/* Moved to editor/editor.css */
 
 /* Debugger Tables & Folding */
-.debug-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9em;
-  margin-top: 5px;
-}
-
-.debug-table td {
-  padding: 2px 5px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.debug-key {
-  font-weight: bold;
-  color: var(--accent-color);
-  width: 40%;
-}
-
-.debug-value {
-  font-family: monospace;
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
-details>summary {
-  cursor: pointer;
-  font-weight: bold;
-  padding: 4px 0;
-  outline: none;
-  user-select: none;
-}
-
-details>summary:hover {
-  color: var(--accent-color);
-}
-
-details[open]>summary {
-  margin-bottom: 5px;
-}
-
-#call-stack .stack-content details {
-  margin-bottom: 8px;
-  border-left: 2px solid var(--border-color);
-  padding-left: 8px;
-}
+/* Moved to debugger/debugger.css */

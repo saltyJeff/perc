@@ -76,4 +76,18 @@ describe("Extended Features", () => {
         expect(run_capture_print(`init x = int("123"); print(x)`)[0]).toBe("123");
         expect(run_capture_print(`init x = float("12.5"); print(x)`)[0]).toBe("12.5");
     });
+
+    test("Literal Typing", () => {
+        // Integer literals should be i32 by default
+        const res1 = run_capture_print("init x = 123; print(x)");
+        expect(res1[0]).toBe("123");
+
+        // Float literals should be f64
+        const res2 = run_capture_print("init x = 123.45; print(x)");
+        expect(res2[0]).toBe("123.45");
+
+        // Hex literals
+        const res3 = run_capture_print("init x = 0xFF; print(x)"); // 255
+        expect(res3[0]).toBe("255");
+    });
 });

@@ -1,0 +1,45 @@
+/* Perc Value Styles */
+.perc-value {
+    font-family: monospace;
+    width: 100%;
+}
+
+.perc-num {
+    color: #b5cea8;
+    display: flex;
+}
+
+.perc-num>.type {
+    color: var(--fg-color);
+}
+
+.perc-num>.val {
+    flex: 1;
+    text-align: right;
+}
+
+.perc-str {
+    color: #ce9178;
+}
+
+.perc-bool {
+    color: #569cd6;
+}
+
+.perc-nil {
+    color: #569cd6;
+    font-style: italic;
+}
+
+.perc-addr {
+    color: #dcdcaa;
+}
+
+.perc-func {
+    color: #dcdcaa;
+}
+
+.perc-meta {
+    color: #888;
+    font-size: 0.9em;
+}

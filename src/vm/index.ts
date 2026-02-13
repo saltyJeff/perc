@@ -10,8 +10,10 @@ export interface VMEventMap {
     on_stack_push: (value: perc_type) => void;
     on_node_eval: (range: [number, number]) => void;
     on_debugger: () => void;
+    on_state_dump: () => void;
     on_error: (err: string) => void;
     on_stack_top_update: (val: perc_type | null) => void;
+    on_input_request: (prompt: string) => void;
 }
 
 export class Scope {
@@ -68,6 +70,8 @@ export class VM {
     private foreign_funcs: Map<string, (...args: perc_type[]) => perc_type> = new Map();
     private events: Partial<VMEventMap> = {};
     private iterators: perc_iterator[] = [];
+    public is_waiting_for_input: boolean = false;
+    public in_debug_mode: boolean = false;
 
     constructor(code: opcode[] = []) {
         this.code = code;
@@ -95,11 +99,9 @@ export class VM {
         // Input
         this.register_foreign('input', (prompt_str: perc_type) => {
             const p = prompt_str instanceof perc_string ? prompt_str.value : "";
-            if (typeof window !== 'undefined' && window.prompt) {
-                const res = window.prompt(p);
-                return res === null ? new perc_nil() : new perc_string(res);
-            }
-            return new perc_nil(); // Fallback for non-browser envs
+            this.events.on_input_request?.(p);
+            this.is_waiting_for_input = true;
+            return new perc_nil(); // Placeholder, will be replaced by resume_with_input
         });
     }
 
@@ -108,6 +110,8 @@ export class VM {
         this.stack = [];
         this.call_stack = [];
         this.iterators = [];
+        this.is_waiting_for_input = false;
+        this.in_debug_mode = false;
         const global_scope = new Scope();
         this.current_frame = new Frame(global_scope, -1, 0);
     }
@@ -124,12 +128,25 @@ export class VM {
         }
     }
 
+    resume_with_input(val: perc_type) {
+        if (this.is_waiting_for_input) {
+            // The 'input' function pushed a nil placeholder. We replace it.
+            this.pop();
+            this.push(val);
+            this.is_waiting_for_input = false;
+        }
+    }
+
     get_call_stack_names(): string[] {
         const frames = [...this.call_stack, this.current_frame];
         return frames.map(f => {
             const argsStr = f.args.length > 0 ? f.args.join(", ") : "";
             return `${f.name}(${argsStr})`;
         });
+    }
+
+    public get_frames(): Frame[] {
+        return [...this.call_stack, this.current_frame];
     }
 
     get_current_scope_values(): Record<string, string> {
@@ -153,9 +170,17 @@ export class VM {
     }
 
     *run(): Generator<void, void, void> {
+        let last_src_start = -1;
+        let last_src_end = -1;
+        let ops_count = 0;
+
         while (this.ip >= 0 && this.ip < this.code.length) {
             const op = this.code[this.ip];
-            this.events.on_node_eval?.([op.src_start, op.src_end]);
+
+            // Highlight only in debug mode
+            if (this.in_debug_mode) {
+                this.events.on_node_eval?.([op.src_start, op.src_end]);
+            }
 
             try {
                 switch (op.type) {
@@ -178,7 +203,9 @@ export class VM {
                         break;
                     case 'init':
                         this.current_frame.scope.define(op.name, this.pop());
-                        this.events.on_var_update?.(op.name, this.current_frame.scope.lookup(op.name)!);
+                        if (this.in_debug_mode) {
+                            this.events.on_var_update?.(op.name, this.current_frame.scope.lookup(op.name)!);
+                        }
                         break;
                     case 'load':
                         const val = this.current_frame.scope.lookup(op.name);
@@ -190,7 +217,9 @@ export class VM {
                         if (!this.current_frame.scope.assign(op.name, s_val)) {
                             throw new Error(`Cannot assign to uninitialized variable: ${op.name}`);
                         }
-                        this.events.on_var_update?.(op.name, s_val);
+                        if (this.in_debug_mode) {
+                            this.events.on_var_update?.(op.name, s_val);
+                        }
                         break;
                     case 'binary_op':
                         const right = this.pop();
@@ -203,16 +232,34 @@ export class VM {
                         break;
                     case 'jump':
                         this.ip = op.addr;
+                        // Check yield condition for jump
+                        if (this.should_yield(op.src_start, op.src_end, last_src_start, last_src_end)) {
+                            last_src_start = op.src_start;
+                            last_src_end = op.src_end;
+                            yield;
+                        }
                         continue;
                     case 'jump_if_false':
                         if (!this.pop().is_truthy()) {
                             this.ip = op.addr;
+                            // Check yield condition
+                            if (this.should_yield(op.src_start, op.src_end, last_src_start, last_src_end)) {
+                                last_src_start = op.src_start;
+                                last_src_end = op.src_end;
+                                yield;
+                            }
                             continue;
                         }
                         break;
                     case 'jump_if_true':
                         if (this.pop().is_truthy()) {
                             this.ip = op.addr;
+                            // Check yield condition
+                            if (this.should_yield(op.src_start, op.src_end, last_src_start, last_src_end)) {
+                                last_src_start = op.src_start;
+                                last_src_end = op.src_end;
+                                yield;
+                            }
                             continue;
                         }
                         break;
@@ -251,7 +298,15 @@ export class VM {
                         this.call_stack.push(this.current_frame);
                         this.current_frame = new_frame;
                         this.ip = func.addr;
-                        this.events.on_frame_push?.(new_frame);
+                        if (this.in_debug_mode) {
+                            this.events.on_frame_push?.(new_frame);
+                        }
+                        // Check yield condition
+                        if (this.should_yield(op.src_start, op.src_end, last_src_start, last_src_end)) {
+                            last_src_start = op.src_start;
+                            last_src_end = op.src_end;
+                            yield;
+                        }
                         continue;
                     case 'ret':
                         const ret_val = this.pop();
@@ -263,7 +318,15 @@ export class VM {
                         this.current_frame = this.call_stack.pop()!;
                         this.ip = finishing_frame.ret_addr;
                         this.push(ret_val);
-                        this.events.on_frame_pop?.();
+                        if (this.in_debug_mode) {
+                            this.events.on_frame_pop?.();
+                        }
+                        // Check yield condition
+                        if (this.should_yield(op.src_start, op.src_end, last_src_start, last_src_end)) {
+                            last_src_start = op.src_start;
+                            last_src_end = op.src_end;
+                            yield;
+                        }
                         continue;
                     case 'make_closure':
                         this.push(new perc_closure(op.addr, this.current_frame.scope, op.name));
@@ -317,8 +380,13 @@ export class VM {
                         this.push(ms_obj.set(new perc_string(op.name), ms_val));
                         break;
                     case 'debugger':
+                        this.in_debug_mode = true;
+                        this.events.on_node_eval?.([op.src_start, op.src_end]); // Highlight debugger statement
                         this.events.on_debugger?.();
-                        yield; // Pause
+                        this.events.on_state_dump?.();
+                        yield; // Always pause on debugger
+                        last_src_start = op.src_start;
+                        last_src_end = op.src_end;
                         break;
                 }
             } catch (e: any) {
@@ -327,8 +395,36 @@ export class VM {
             }
 
             this.ip++;
-            yield;
+            ops_count++;
+            if (this.should_yield(op.src_start, op.src_end, last_src_start, last_src_end) || ops_count > 2000) {
+                last_src_start = op.src_start;
+                last_src_end = op.src_end;
+                ops_count = 0;
+                yield;
+            }
         }
+    }
+
+    private should_yield(curr_start: number, curr_end: number, last_start: number, last_end: number): boolean {
+        // Yield if we are in debug mode AND the source position has changed
+        if (this.in_debug_mode) {
+            return curr_start !== last_start || curr_end !== last_end;
+        }
+        // In non-debug mode, we don't yield on every instruction to be faster, 
+        // BUT the outer loop (index.ts) expects BATCH_SIZE yields.
+        // If we don't yield, we might freeze the UI.
+        // Actually, we SHOULD yield every instruction or every N instructions to let the event loop breathe,
+        // but since index.ts uses a batch loop (run 100 times), yielding here just returns to that loop.
+        // So yielding every instruction is fine and safest.
+        // Wait, the User Request says: "the VM should keep executing bytecode until the src_start and/or src_end changes"
+        // This is specifically for "delta updating the generator" context (step 3/step 4).
+        // If in Run mode (not debug), we can probably just yield normally (every instruction) or for performance optimization
+        // we could yield less often. 
+        // NOTE: If we yield ONLY on src change in Run mode, `index.ts` might run fewer "visual steps" per frame.
+        // Let's stick to: Yield if src changes OR we just want to yield to be safe.
+        // However, the prompt specifically asked for the "VM should keep executing... until ... changes" behavior.
+        // I will apply this behavior universally as it makes "step" consistent.
+        return curr_start !== last_start || curr_end !== last_end;
     }
 
     private apply_binary(left: perc_type, right: perc_type, op: string): perc_type {
@@ -367,8 +463,10 @@ export class VM {
 
     private push(val: perc_type) {
         this.stack.push(val);
-        this.events.on_stack_push?.(val);
-        this.events.on_stack_top_update?.(val);
+        if (this.in_debug_mode) {
+            this.events.on_stack_push?.(val);
+            this.events.on_stack_top_update?.(val);
+        }
     }
 
     private pop(): perc_type {
@@ -377,10 +475,12 @@ export class VM {
         if (v instanceof perc_err) throw new Error(v.value);
 
         // Notify top update
-        if (this.stack.length > 0) {
-            this.events.on_stack_top_update?.(this.stack[this.stack.length - 1]);
-        } else {
-            this.events.on_stack_top_update?.(null);
+        if (this.in_debug_mode) {
+            if (this.stack.length > 0) {
+                this.events.on_stack_top_update?.(this.stack[this.stack.length - 1]);
+            } else {
+                this.events.on_stack_top_update?.(null);
+            }
         }
 
         return v;

@@ -204,10 +204,10 @@ export class Compiler {
                 break;
 
             case "IntegerLiteral":
-                this.emit({ type: 'push', imm: new perc_number(parseInt(node.value.replace(/_/g, ''))) }, node);
+                this.emit({ type: 'push', imm: new perc_number(parseInt(node.value.replace(/_/g, '')), 'i32') }, node);
                 break;
             case "FloatLiteral":
-                this.emit({ type: 'push', imm: new perc_number(parseFloat(node.value.replace(/_/g, ''))) }, node);
+                this.emit({ type: 'push', imm: new perc_number(parseFloat(node.value.replace(/_/g, '')), 'f64') }, node);
                 break;
             case "StringLiteral":
             case "CharLiteral":
