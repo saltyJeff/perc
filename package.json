@@ -9,7 +9,13 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@types/jquery": "^3.5.33",
     "typescript": "~5.9.3",
     "vite": "^7.3.1"
+  },
+  "dependencies": {
+    "ace-builds": "^1.43.6",
+    "jquery": "^4.0.0",
+    "peggy": "^5.0.6"
   }
 }
