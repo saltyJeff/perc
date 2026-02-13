@@ -35,6 +35,7 @@ $(() => {
         $('#editor').removeClass('running-mode'); // Remove execution highlight
         $('#btn-stop').hide();
         $('#btn-step').hide();
+        $('#btn-continue').hide();
         $('#btn-run').show();
         $('#btn-build').show();
         debug.setStatus('Idle');
@@ -54,6 +55,7 @@ $(() => {
         $('#btn-run').hide();
         $('#btn-stop').show();
         $('#btn-step').hide();
+        $('#btn-continue').hide();
         $('#btn-build').hide();
         debug.setStatus('Running...');
 
@@ -94,10 +96,10 @@ $(() => {
             stopVM();
         },
         on_var_update: (name, value) => {
-            debug.updateVariable(name, value.to_string());
+            debug.updateVariable(name, value);
         },
         on_frame_push: (frame) => {
-            debug.pushFrame(`${frame.name}(${frame.args.join(', ')})`);
+            debug.pushFrame(frame.name, frame.args);
             debug.clearVariables(); // New frame means new scope shown
             // We might want to show globals too, but for now just current scope
         },
@@ -115,6 +117,7 @@ $(() => {
         on_debugger: () => {
             isPaused = true;
             $('#btn-step').show();
+            $('#btn-continue').show();
             debug.setStatus('Paused (Debugger)');
         }
     });
@@ -212,6 +215,10 @@ print("Result: " + result);
 
     $('#btn-step').on('click', () => {
         stepVM();
+    });
+
+    $('#btn-continue').on('click', () => {
+        runVM(); // Resume execution
     });
 
     $('#btn-build').on('click', () => {

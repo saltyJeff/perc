@@ -503,3 +503,50 @@ button.icon-btn:hover {
   border-bottom: 2px solid red !important;
   z-index: 20;
 }
+
+/* Debugger Tables & Folding */
+.debug-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9em;
+  margin-top: 5px;
+}
+
+.debug-table td {
+  padding: 2px 5px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.debug-key {
+  font-weight: bold;
+  color: var(--accent-color);
+  width: 40%;
+}
+
+.debug-value {
+  font-family: monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+details>summary {
+  cursor: pointer;
+  font-weight: bold;
+  padding: 4px 0;
+  outline: none;
+  user-select: none;
+}
+
+details>summary:hover {
+  color: var(--accent-color);
+}
+
+details[open]>summary {
+  margin-bottom: 5px;
+}
+
+#call-stack .stack-content details {
+  margin-bottom: 8px;
+  border-left: 2px solid var(--border-color);
+  padding-left: 8px;
+}
