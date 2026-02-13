@@ -6,10 +6,21 @@ export class Debugger {
     private element: JQuery<HTMLElement>;
     public onVariableHover?: (range: [number, number] | null) => void;
 
+    // Widths in percentages
+    private colWidths3: number[] = [33.33, 33.34, 33.33];
+    private colWidths2: number[] = [50, 50];
+
+    private isResizing = false;
+    private resizeStartIndex = -1;
+    private resizeStartWidths: number[] = [];
+    private resizeStartX = 0;
+    private resizeTable: JQuery<HTMLElement> | null = null;
+
     constructor(elementId: string) {
         this.element = $(`#${elementId}`);
         if (this.element.length === 0) throw new Error(`Debugger element ${elementId} not found`);
         this.render();
+        this.setupResizing();
     }
 
     private render() {
@@ -33,24 +44,87 @@ export class Debugger {
 
     private createDebugTable(headers: string[]): JQuery<HTMLElement> {
         const $table = $('<table>', { class: 'debug-table' });
+        // Store headers as an attribute to identify column count/widths
+        $table.attr('data-cols', headers.length);
 
-        // PER REQUEST: No headers emitted to DOM
-        // Fix column widths using colgroup since headers are gone
         const $colgroup = $('<colgroup>');
-        if (headers.length === 3) {
-            // Variables / Stack: Name, Value, Type
-            $colgroup.append($('<col>', { style: 'width: 30%' }));
-            $colgroup.append($('<col>', { style: 'width: 50%' }));
-            $colgroup.append($('<col>', { style: 'width: 20%' }));
-        } else {
-            // Current Expression: Value, Type
-            $colgroup.append($('<col>', { style: 'width: 70%' }));
-            $colgroup.append($('<col>', { style: 'width: 30%' }));
-        }
-        $table.append($colgroup);
+        const widths = headers.length === 3 ? this.colWidths3 : this.colWidths2;
 
+        widths.forEach(w => {
+            $colgroup.append($('<col>', { style: `width: ${w}%` }));
+        });
+
+        $table.append($colgroup);
         $table.append($('<tbody>'));
         return $table;
+    }
+
+    private setupResizing() {
+        $(document).on('mousedown', '.col-resizer', (e) => {
+            e.preventDefault();
+            this.isResizing = true;
+            this.resizeStartX = e.pageX;
+            const $resizer = $(e.currentTarget);
+            const $td = $resizer.closest('td');
+            this.resizeStartIndex = $td.index();
+            this.resizeTable = $resizer.closest('table');
+
+            const colCount = parseInt(this.resizeTable.attr('data-cols') || '0');
+            this.resizeStartWidths = [...(colCount === 3 ? this.colWidths3 : this.colWidths2)];
+
+            $resizer.addClass('resizing');
+            $('body').css('cursor', 'col-resize');
+        });
+
+        $(document).on('mousemove', (e) => {
+            if (!this.isResizing || !this.resizeTable) return;
+
+            const diffX = e.pageX - this.resizeStartX;
+            const tableWidth = this.resizeTable.width() || 1;
+            const diffPercent = (diffX / tableWidth) * 100;
+
+            const colCount = parseInt(this.resizeTable.attr('data-cols') || '0');
+            const widths = colCount === 3 ? this.colWidths3 : this.colWidths2;
+
+            // Adjust current column and next column
+            const idx = this.resizeStartIndex;
+            if (idx >= 0 && idx < widths.length - 1) {
+                const newLeftWidth = Math.max(10, this.resizeStartWidths[idx] + diffPercent);
+                const newRightWidth = Math.max(10, (this.resizeStartWidths[idx] + this.resizeStartWidths[idx + 1]) - newLeftWidth);
+
+                // If we can't shrink the right one anymore, cap the left one
+                if (newRightWidth <= 10) {
+                    // Stay at 10 for right, adjust left to take the rest of the sum
+                    // But for simplicity let's just apply if both > 10
+                } else {
+                    widths[idx] = newLeftWidth;
+                    widths[idx + 1] = newRightWidth;
+
+                    // Update all tables with the same column count
+                    this.updateAllTableWidths(colCount);
+                }
+            }
+        });
+
+        $(document).on('mouseup', () => {
+            if (this.isResizing) {
+                this.isResizing = false;
+                $('.col-resizer').removeClass('resizing');
+                $('body').css('cursor', '');
+            }
+        });
+    }
+
+    private updateAllTableWidths(colCount: number) {
+        const widths = colCount === 3 ? this.colWidths3 : this.colWidths2;
+        $(`.debug-table[data-cols="${colCount}"] colgroup`).each(function () {
+            const $colgroup = $(this);
+            $colgroup.find('col').each((i, col) => {
+                if (i < widths.length) {
+                    $(col).css('width', `${widths[i]}%`);
+                }
+            });
+        });
     }
 
     private createRow(cells: (string | JQuery<HTMLElement>)[]): JQuery<HTMLElement> {
@@ -67,8 +141,18 @@ export class Debugger {
                 else $td.append(content);
             }
 
-            // Add a class for centering text as requested
-            $td.css('text-align', 'center');
+            // Assign columns classes based on index
+            // 0: Name, 1: Value, 2: Type
+            if (i === 0) $td.addClass('col-name');
+            else if (i === 1) $td.addClass('col-value');
+            else if (i === 2) $td.addClass('col-type');
+
+            // Add resizer if not the last column
+            const cellsInRow = cells.length;
+            if (i < cellsInRow - 1) {
+                $td.append($('<div>', { class: 'col-resizer' }));
+            }
+
             $tr.append($td);
         });
         return $tr;
@@ -152,6 +236,7 @@ export class Debugger {
         if (range) {
             $nameSpan.on('mouseenter touchstart', (e) => {
                 if (e.type === 'touchstart') e.preventDefault();
+                // console.log('Hover var:', name, range);
                 this.onVariableHover?.(range);
             });
             $nameSpan.on('mouseleave touchend', () => {
@@ -159,13 +244,16 @@ export class Debugger {
             });
         }
 
-        // Iterate rows to find match by Name (1st column text)
+        // Iterate rows to find match by Name
         tbody.children('tr').each(function () {
             const row = $(this);
             // 1st td is Name
             if (row.find('td:first').text() === name) {
-                // Update Name Cell (to refresh interactivity/range)
-                row.find('td:first').empty().append($nameSpan);
+                // Update Name Cell
+                const nameTd = row.find('td:first');
+                nameTd.empty().append($nameSpan);
+                if (range) nameTd.addClass('has-link'); // Helper class if needed
+
                 // Update Value (2nd td)
                 row.find('td:eq(1)').empty().append(newValContent);
                 // Update Type (3rd td)
@@ -176,7 +264,8 @@ export class Debugger {
         });
 
         if (!found) {
-            tbody.append(this.createRow([$nameSpan, newValContent, newTypeContent]));
+            const $row = this.createRow([$nameSpan, newValContent, newTypeContent]);
+            tbody.append($row);
         }
     }
 

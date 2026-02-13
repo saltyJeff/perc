@@ -19,32 +19,30 @@
     border-collapse: collapse;
     font-size: 0.9em;
     table-layout: fixed;
-    /* Allow columns to respect widths/resize */
+    /* Fixed layout for precise column widths */
 }
 
-.debug-table th,
+/* Row Layout */
+.debug-table tr {
+    border-bottom: 1px solid var(--border-color);
+}
+
 .debug-table td {
-    border: 1px solid var(--border-color);
-    padding: 2px 5px;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    text-align: center;
-    /* Per user request */
+    border: none;
+    border-right: 1px solid var(--border-color);
+    padding: 4px 5px;
+    vertical-align: top;
+    /* Align to top for wrapped text */
+    white-space: normal;
+    /* Enable text wrapping */
+    word-break: break-all;
+    /* Ensure long values wrap */
+    position: relative;
+    /* For resizer handle positioning */
 }
 
-.debug-table th {
-    background-color: var(--header-bg, #2d2d2d);
-    color: var(--header-fg, #cccccc);
-    font-weight: normal;
-    text-align: left;
-    /* Headers usually left-align, user asked center for cells? Default left generally. I'll center everything. */
-    text-align: center;
-    position: relative;
-    resize: horizontal;
-    /* Resizable columns */
-    overflow: hidden;
-    min-width: 50px;
+.debug-table td:last-child {
+    border-right: none;
 }
 
 .debug-table tr:hover {
@@ -55,18 +53,47 @@
     font-family: 'Consolas', monospace;
 }
 
+/* Resize Handle Style */
+.col-resizer {
+    position: absolute;
+    top: 0;
+    right: -3px;
+    width: 6px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 10;
+}
+
+.col-resizer:hover,
+.col-resizer.resizing {
+    background-color: var(--accent-color, #4facfe);
+    opacity: 0.5;
+}
+
 /* Specific Columns */
 .col-name {
     color: var(--accent-color, #9cdcfe);
+    text-align: left;
 }
 
 .col-value {
     color: var(--fg-color);
+    text-align: left;
 }
 
 .col-type {
     color: var(--comment-color, #6a9955);
     font-style: italic;
+    width: auto;
+    max-width: 30%;
+}
+
+.debug-var-name {
+    cursor: pointer;
+}
+
+.debug-var-name:hover {
+    text-decoration: underline;
 }
 
 /* Call Stack Details Overrides */
