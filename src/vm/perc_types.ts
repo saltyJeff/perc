@@ -25,6 +25,13 @@ export abstract class perc_type {
     gt(other: perc_type): perc_bool { return new perc_bool(false); }
     ge(other: perc_type): perc_bool { return new perc_bool(false); }
 
+    // Bitwise
+    bitwise_and(other: perc_type): perc_type { return new perc_err("Method 'bitwise_and' not implemented."); }
+    bitwise_or(other: perc_type): perc_type { return new perc_err("Method 'bitwise_or' not implemented."); }
+    bitwise_xor(other: perc_type): perc_type { return new perc_err("Method 'bitwise_xor' not implemented."); }
+    shl(other: perc_type): perc_type { return new perc_err("Method 'shl' not implemented."); }
+    shr(other: perc_type): perc_type { return new perc_err("Method 'shr' not implemented."); }
+
     is_truthy(): boolean { return true; }
 
     get_iterator(): perc_iterator {
@@ -71,9 +78,11 @@ export class perc_bool extends perc_type {
 
 export class perc_number extends perc_type {
     buffer: Float64Array | Float32Array | Int32Array | Uint32Array | Int16Array | Uint16Array | Int8Array | Uint8Array;
+    type: 'f64' | 'f32' | 'i32' | 'u32' | 'i16' | 'u16' | 'i8' | 'u8';
 
     constructor(value: number, type: 'f64' | 'f32' | 'i32' | 'u32' | 'i16' | 'u16' | 'i8' | 'u8' = 'f64') {
         super();
+        this.type = type;
         switch (type) {
             case 'f32': this.buffer = new Float32Array(1); break;
             case 'i32': this.buffer = new Int32Array(1); break;
@@ -90,27 +99,53 @@ export class perc_number extends perc_type {
     private get val() { return this.buffer[0]; }
 
     add(other: perc_type): perc_type {
-        if (other instanceof perc_number) return new perc_number(this.val + other.val);
+        if (other instanceof perc_number) return new perc_number(this.val + other.val, this.type);
         return super.add(other);
     }
     sub(other: perc_type): perc_type {
-        if (other instanceof perc_number) return new perc_number(this.val - other.val);
+        if (other instanceof perc_number) return new perc_number(this.val - other.val, this.type);
         return super.sub(other);
     }
     mul(other: perc_type): perc_type {
-        if (other instanceof perc_number) return new perc_number(this.val * other.val);
+        if (other instanceof perc_number) return new perc_number(this.val * other.val, this.type);
         return super.mul(other);
     }
     div(other: perc_type): perc_type {
         if (other instanceof perc_number) {
             if (other.val === 0) return new perc_err("Division by zero");
-            return new perc_number(this.val / other.val);
+            return new perc_number(this.val / other.val, this.type);
         }
         return super.div(other);
     }
     mod(other: perc_type): perc_type {
-        if (other instanceof perc_number) return new perc_number(this.val % other.val);
+        if (other instanceof perc_number) return new perc_number(this.val % other.val, this.type);
         return super.mod(other);
+    }
+    pow(other: perc_type): perc_type {
+        if (other instanceof perc_number) return new perc_number(Math.pow(this.val, other.val), this.type);
+        return super.pow(other);
+    }
+
+    // Bitwise ops - always behave as 32-bit ints in JS, so we cast result back to our type
+    bitwise_and(other: perc_type): perc_type {
+        if (other instanceof perc_number) return new perc_number(this.val & other.val, this.type);
+        return super.bitwise_and(other);
+    }
+    bitwise_or(other: perc_type): perc_type {
+        if (other instanceof perc_number) return new perc_number(this.val | other.val, this.type);
+        return super.bitwise_or(other);
+    }
+    bitwise_xor(other: perc_type): perc_type {
+        if (other instanceof perc_number) return new perc_number(this.val ^ other.val, this.type);
+        return super.bitwise_xor(other);
+    }
+    shl(other: perc_type): perc_type {
+        if (other instanceof perc_number) return new perc_number(this.val << other.val, this.type);
+        return super.shl(other);
+    }
+    shr(other: perc_type): perc_type {
+        if (other instanceof perc_number) return new perc_number(this.val >> other.val, this.type);
+        return super.shr(other);
     }
 
     eq(other: perc_type): perc_bool {

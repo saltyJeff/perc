@@ -72,6 +72,35 @@ export class VM {
     constructor(code: opcode[] = []) {
         this.code = code;
         this.reset_state();
+        this.register_defaults();
+    }
+
+    private register_defaults() {
+        const types = ['i8', 'u8', 'i16', 'u16', 'i32', 'u32', 'f32', 'f64'] as const;
+        for (const t of types) {
+            this.register_foreign(t, (arg: perc_type) => {
+                if (arg instanceof perc_number) return new perc_number(arg.buffer[0], t);
+                // Try parsing string
+                if (arg instanceof perc_string) {
+                    const n = parseFloat(arg.value);
+                    if (!isNaN(n)) return new perc_number(n, t);
+                }
+                return new perc_err(`Cannot cast ${arg.to_string()} to ${t}`);
+            });
+        }
+        // Aliases
+        this.register_foreign('int', this.foreign_funcs.get('i32')!);
+        this.register_foreign('float', this.foreign_funcs.get('f64')!);
+
+        // Input
+        this.register_foreign('input', (prompt_str: perc_type) => {
+            const p = prompt_str instanceof perc_string ? prompt_str.value : "";
+            if (typeof window !== 'undefined' && window.prompt) {
+                const res = window.prompt(p);
+                return res === null ? new perc_nil() : new perc_string(res);
+            }
+            return new perc_nil(); // Fallback for non-browser envs
+        });
     }
 
     reset_state() {
@@ -317,6 +346,12 @@ export class VM {
             case '>=': return left.ge(right);
             case '&&': return new perc_bool(left.is_truthy() && right.is_truthy());
             case '||': return new perc_bool(left.is_truthy() || right.is_truthy());
+            case '**': return left.pow(right);
+            case '&': return left.bitwise_and(right);
+            case '|': return left.bitwise_or(right);
+            case '^': return left.bitwise_xor(right);
+            case '<<': return left.shl(right);
+            case '>>': return left.shr(right);
             default: return new perc_err(`Unknown operator: ${op}`);
         }
     }
