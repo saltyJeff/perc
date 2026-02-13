@@ -157,8 +157,8 @@ $(() => {
             appConsole.focusInput();
         },
         // ... other events ...
-        on_var_update: (name, value) => {
-            debug.updateVariable(name, value);
+        on_var_update: (name, value, range) => {
+            debug.updateVariable(name, value, range);
         },
         on_frame_push: (frame) => {
             debug.pushFrame(frame.name, frame.args);
@@ -259,6 +259,15 @@ print("Result: " + result);
     });
 
     // --- Execution Control ---
+
+    // Wire up debugger to editor
+    debug.onVariableHover = (range) => {
+        if (range) {
+            editor.highlightVariableDefinition(range[0], range[1]);
+        } else {
+            editor.clearVariableDefinitionHighlight();
+        }
+    };
 
     $('#btn-run').on('click', () => {
         if (isPaused) {

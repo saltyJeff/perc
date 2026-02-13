@@ -17,6 +17,14 @@
     z-index: 20;
 }
 
+/* Variable Definition Highlight */
+.variable-def-highlight {
+    position: absolute;
+    background-color: rgba(0, 0, 255, 0.2);
+    border-bottom: 2px solid blue;
+    z-index: 20;
+}
+
 /* Error Highlight Marker */
 .error-marker {
     position: absolute;

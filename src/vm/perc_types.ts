@@ -1,4 +1,6 @@
 export abstract class perc_type {
+    abstract get type(): string;
+
     // Structural
     get(key: perc_type): perc_type { return new perc_err("Method 'get' not implemented."); }
     set(key: perc_type, value: perc_type): perc_type { return new perc_err("Method 'set' not implemented."); }
@@ -49,6 +51,7 @@ export interface perc_iterator {
 
 export class perc_err extends perc_type {
     value: string;
+    get type() { return 'error'; }
     constructor(value: string) {
         super();
         this.value = value;
@@ -57,6 +60,7 @@ export class perc_err extends perc_type {
 }
 
 export class perc_nil extends perc_type {
+    get type() { return 'nil'; }
     to_string(): string { return "nil"; }
     is_truthy(): boolean { return false; }
     eq(other: perc_type): perc_bool { return new perc_bool(other instanceof perc_nil); }
@@ -64,6 +68,7 @@ export class perc_nil extends perc_type {
 
 export class perc_bool extends perc_type {
     value: boolean;
+    get type() { return 'bool'; }
     constructor(value: boolean) {
         super();
         this.value = !!value;
@@ -78,6 +83,11 @@ export class perc_bool extends perc_type {
 
 export class perc_number extends perc_type {
     buffer: Float64Array | Float32Array | Int32Array | Uint32Array | Int16Array | Uint16Array | Int8Array | Uint8Array;
+    // We already use 'type' as a property for the specific number type (i32, f64 etc)
+    // This satisfies the abstract getter as long as it's a string!
+    // But we might want 'number' as the high level type, and 'i32' as subtype?
+    // User wants "Value" and "Type". For number, seeing 'i32' is clearer than 'number'.
+    // So current property 'type' is perfect.
     type: 'f64' | 'f32' | 'i32' | 'u32' | 'i16' | 'u16' | 'i8' | 'u8';
 
     constructor(value: number, type: 'f64' | 'f32' | 'i32' | 'u32' | 'i16' | 'u16' | 'i8' | 'u8' = 'f64') {
@@ -169,6 +179,7 @@ export class perc_number extends perc_type {
 
 export class perc_string extends perc_type {
     value: string;
+    get type() { return 'string'; }
     constructor(value: string) {
         super();
         this.value = value;
@@ -184,6 +195,7 @@ export class perc_string extends perc_type {
 
 export class perc_list extends perc_type {
     elements: perc_type[];
+    get type() { return 'list'; }
     constructor(elements: perc_type[] = []) {
         super();
         this.elements = elements;
@@ -225,6 +237,7 @@ export class perc_list extends perc_type {
 
 export class perc_map extends perc_type {
     data: Map<any, perc_type>;
+    get type() { return 'map'; }
     constructor() {
         super();
         this.data = new Map();
@@ -245,7 +258,8 @@ export class perc_map extends perc_type {
 export class perc_closure extends perc_type {
     addr: number;
     name: string;
-    captured: any; // Ideally Scope, but using any to avoid circularity if not careful
+    captured: any;
+    get type() { return 'function'; }
     constructor(addr: number, captured: any, name: string = "anonymous") {
         super();
         this.addr = addr;

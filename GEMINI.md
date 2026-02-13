@@ -46,6 +46,7 @@ The interpreter is implemented as a stack-based Virtual Machine using a generato
 ### Opcodes
 - **Stack**: `push`, `pop`, `dup`, `swap`.
 - **Variables**: `init`, `load`, `store` (with semantic checks for `init` vs `change`).
+  > **Note**: This language uses `init` for declaration and `change` for mutation. `var` and `let` are **NOT** supported.
 - **Control Flow**: `jump`, `jump_if_false`, `jump_if_true`.
 - **Loops**: `get_iter`, `iter_next` (for `for-in` support).
 - **Functions**: `call`, `ret`, `make_closure`.

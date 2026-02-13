@@ -2,49 +2,80 @@
 .debug-section {
     padding: 10px;
     border-bottom: 1px solid var(--border-color);
+    overflow: auto;
 }
 
 .debug-section h4 {
     margin: 0 0 5px 0;
     font-size: 0.9em;
     opacity: 0.8;
+    display: block;
+    /* Section title */
 }
 
+/* VS-Style Debug Table */
 .debug-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.9em;
-    margin-top: 5px;
+    table-layout: fixed;
+    /* Allow columns to respect widths/resize */
+}
+
+.debug-table th,
+.debug-table td {
+    border: 1px solid var(--border-color);
+    padding: 2px 5px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    text-align: center;
+    /* Per user request */
+}
+
+.debug-table th {
+    background-color: var(--header-bg, #2d2d2d);
+    color: var(--header-fg, #cccccc);
+    font-weight: normal;
+    text-align: left;
+    /* Headers usually left-align, user asked center for cells? Default left generally. I'll center everything. */
+    text-align: center;
+    position: relative;
+    resize: horizontal;
+    /* Resizable columns */
+    overflow: hidden;
+    min-width: 50px;
+}
+
+.debug-table tr:hover {
+    background-color: rgba(255, 255, 255, 0.05);
 }
 
 .debug-table td {
-    padding: 2px 5px;
-    border-bottom: 1px solid var(--border-color);
+    font-family: 'Consolas', monospace;
 }
 
-.debug-key {
-    font-weight: bold;
-    color: var(--accent-color);
-    width: 40%;
+/* Specific Columns */
+.col-name {
+    color: var(--accent-color, #9cdcfe);
 }
 
-.debug-value {
-    font-family: monospace;
-    white-space: pre-wrap;
-    word-break: break-all;
+.col-value {
+    color: var(--fg-color);
 }
 
-/* Call Stack Details */
+.col-type {
+    color: var(--comment-color, #6a9955);
+    font-style: italic;
+}
+
+/* Call Stack Details Overrides */
 details>summary {
     cursor: pointer;
     font-weight: bold;
     padding: 4px 0;
     outline: none;
     user-select: none;
-}
-
-details>summary:hover {
-    color: var(--accent-color);
 }
 
 details[open]>summary {
@@ -55,17 +86,4 @@ details[open]>summary {
     margin-bottom: 8px;
     border-left: 2px solid var(--border-color);
     padding-left: 8px;
-}
-
-.expr-content {
-    width: 100%;
-}
-
-/* Highlight for current value being evaluated */
-.current-val-highlight {
-    background-color: rgba(0, 122, 204, 0.1);
-    /* Blue tint */
-    padding: 2px;
-    border-radius: 3px;
-    display: inline-block;
 }

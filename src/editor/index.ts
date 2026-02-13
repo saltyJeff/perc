@@ -16,6 +16,7 @@ export class Editor {
     private editor: ace.Ace.Editor;
     private currentMarkerId: number | null = null;
     private currentErrorMarkerId: number | null = null;
+    private currentVarDefMarkerId: number | null = null;
 
     constructor(containerId: string) {
         this.editor = ace.edit(containerId);
@@ -169,5 +170,36 @@ export class Editor {
         this.clearErrorHighlight();
         this.editor.container.classList.remove('running-mode');
         this.editor.container.classList.remove('debug-mode');
+    }
+
+    public highlightVariableDefinition(start: number, end: number) {
+        // Remove existing variable highlight if any
+        if (this.currentVarDefMarkerId !== null) {
+            this.editor.session.removeMarker(this.currentVarDefMarkerId);
+            this.currentVarDefMarkerId = null;
+        }
+
+        const session = this.editor.session;
+        const doc = session.getDocument();
+        const startPos = doc.indexToPosition(start, 0);
+        const endPos = doc.indexToPosition(end, 0);
+
+        // Scroll to line
+        this.editor.scrollToLine(startPos.row, true, true, () => { });
+
+        // Add marker
+        // @ts-ignore
+        const Range = ace.require('ace/range').Range;
+        const range = new Range(startPos.row, startPos.column, endPos.row, endPos.column);
+
+        // Use 'text' type for background highlight, or we can use specific class in CSS
+        this.currentVarDefMarkerId = session.addMarker(range, "variable-def-highlight", "text", true);
+    }
+
+    public clearVariableDefinitionHighlight() {
+        if (this.currentVarDefMarkerId !== null) {
+            this.editor.session.removeMarker(this.currentVarDefMarkerId);
+            this.currentVarDefMarkerId = null;
+        }
     }
 }

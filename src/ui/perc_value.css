@@ -1,21 +1,14 @@
 /* Perc Value Styles */
-.perc-value {
+.perc-value,
+.perc-num {
     font-family: monospace;
     width: 100%;
+    cursor: default;
 }
 
+/* Types */
 .perc-num {
     color: #b5cea8;
-    display: flex;
-}
-
-.perc-num>.type {
-    color: var(--fg-color);
-}
-
-.perc-num>.val {
-    flex: 1;
-    text-align: right;
 }
 
 .perc-str {
@@ -42,4 +35,28 @@
 .perc-meta {
     color: #888;
     font-size: 0.9em;
+}
+
+/* Interactive Hover */
+.value-hover {
+    outline: 2px solid var(--accent-color, #007acc);
+    background-color: rgba(0, 122, 204, 0.1);
+    border-radius: 2px;
+}
+
+/* Floating Tooltip */
+.value-tooltip {
+    position: fixed;
+    /* Fixed to be relative to viewport, avoiding overflow issues */
+    z-index: 9999;
+    background-color: var(--panel-bg, #252526);
+    color: var(--fg-color, #d4d4d4);
+    border: 1px solid var(--accent-color, #007acc);
+    padding: 5px 8px;
+    font-family: monospace;
+    font-size: 0.85em;
+    border-radius: 3px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+    /* Let clicks pass through */
 }

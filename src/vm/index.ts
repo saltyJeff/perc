@@ -6,7 +6,7 @@ import { Compiler } from "./compiler.ts";
 export interface VMEventMap {
     on_frame_push: (frame: Frame) => void;
     on_frame_pop: () => void;
-    on_var_update: (name: string, value: perc_type) => void;
+    on_var_update: (name: string, value: perc_type, range: [number, number] | null) => void;
     on_stack_push: (value: perc_type) => void;
     on_node_eval: (range: [number, number]) => void;
     on_debugger: () => void;
@@ -18,6 +18,7 @@ export interface VMEventMap {
 
 export class Scope {
     values: Map<string, perc_type> = new Map();
+    definitions: Map<string, [number, number]> = new Map();
     parent: Scope | null = null;
     is_closure_scope: boolean = false;
 
@@ -25,22 +26,30 @@ export class Scope {
         this.parent = parent;
     }
 
-    define(name: string, value: perc_type) {
+    define(name: string, value: perc_type, range: [number, number]) {
         this.values.set(name, value);
+        this.definitions.set(name, range);
     }
 
-    assign(name: string, value: perc_type): boolean {
+    assign(name: string, value: perc_type, range: [number, number]): boolean {
         if (this.values.has(name)) {
             this.values.set(name, value);
+            this.definitions.set(name, range);
             return true;
         }
-        if (this.parent) return this.parent.assign(name, value);
+        if (this.parent) return this.parent.assign(name, value, range);
         return false;
     }
 
     lookup(name: string): perc_type | null {
         if (this.values.has(name)) return this.values.get(name)!;
         if (this.parent) return this.parent.lookup(name);
+        return null;
+    }
+
+    lookup_definition(name: string): [number, number] | null {
+        if (this.definitions.has(name)) return this.definitions.get(name)!;
+        if (this.parent) return this.parent.lookup_definition(name);
         return null;
     }
 }
@@ -149,12 +158,17 @@ export class VM {
         return [...this.call_stack, this.current_frame];
     }
 
-    get_current_scope_values(): Record<string, string> {
-        const res: Record<string, string> = {};
+    get_current_scope_values(): Record<string, { value: perc_type, range: [number, number] | null }> {
+        const res: Record<string, { value: perc_type, range: [number, number] | null }> = {};
         let s: Scope | null = this.current_frame.scope;
         while (s) {
             for (const [k, v] of s.values.entries()) {
-                if (!(k in res)) res[k] = v.to_string();
+                if (!(k in res)) {
+                    res[k] = {
+                        value: v,
+                        range: s.definitions.get(k) || null
+                    };
+                }
             }
             s = s.parent;
         }
@@ -202,9 +216,9 @@ export class VM {
                         this.push(b);
                         break;
                     case 'init':
-                        this.current_frame.scope.define(op.name, this.pop());
+                        this.current_frame.scope.define(op.name, this.pop(), [op.src_start, op.src_end]);
                         if (this.in_debug_mode) {
-                            this.events.on_var_update?.(op.name, this.current_frame.scope.lookup(op.name)!);
+                            this.events.on_var_update?.(op.name, this.current_frame.scope.lookup(op.name)!, [op.src_start, op.src_end]);
                         }
                         break;
                     case 'load':
@@ -214,11 +228,11 @@ export class VM {
                         break;
                     case 'store':
                         const s_val = this.pop();
-                        if (!this.current_frame.scope.assign(op.name, s_val)) {
+                        if (!this.current_frame.scope.assign(op.name, s_val, [op.src_start, op.src_end])) {
                             throw new Error(`Cannot assign to uninitialized variable: ${op.name}`);
                         }
                         if (this.in_debug_mode) {
-                            this.events.on_var_update?.(op.name, s_val);
+                            this.events.on_var_update?.(op.name, s_val, [op.src_start, op.src_end]);
                         }
                         break;
                     case 'binary_op':
