@@ -26,6 +26,7 @@ export interface swap_op extends base_op {
 export interface init_op extends base_op {
     type: 'init';
     name: string;
+    catch: boolean;
 }
 
 export interface load_op extends base_op {
@@ -36,6 +37,7 @@ export interface load_op extends base_op {
 export interface store_op extends base_op {
     type: 'store';
     name: string;
+    catch: boolean;
 }
 
 export interface binary_op extends base_op {
@@ -114,6 +116,7 @@ export interface index_load_op extends base_op {
 
 export interface index_store_op extends base_op {
     type: 'index_store';
+    catch: boolean;
 }
 
 export interface member_load_op extends base_op {
@@ -124,6 +127,7 @@ export interface member_load_op extends base_op {
 export interface member_store_op extends base_op {
     type: 'member_store';
     name: string;
+    catch: boolean;
 }
 
 export interface debugger_op extends base_op {
@@ -156,4 +160,9 @@ export type opcode =
     | index_store_op
     | member_load_op
     | member_store_op
-    | debugger_op;
+    | debugger_op
+    | typeof_op;
+
+export interface typeof_op extends base_op {
+    type: 'typeof';
+}

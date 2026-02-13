@@ -11,7 +11,7 @@ export interface VMEventMap {
     on_node_eval: (range: [number, number]) => void;
     on_debugger: () => void;
     on_state_dump: () => void;
-    on_error: (err: string) => void;
+    on_error: (err: string, location: [number, number] | null) => void;
     on_stack_top_update: (val: perc_type | null) => void;
     on_input_request: (prompt: string) => void;
 }
@@ -141,7 +141,8 @@ export class VM {
             this.code = compiler.compile(ast);
             this.reset_state();
         } catch (e: any) {
-            this.events.on_error?.(e.message);
+            const loc: [number, number] | null = e.location ? [e.location.start.offset, e.location.end.offset] : null;
+            this.events.on_error?.(e.message, loc);
             throw e;
         }
     }
@@ -211,7 +212,22 @@ export class VM {
                         this.push(op.imm);
                         break;
                     case 'pop':
-                        this.pop();
+                        const p_val = this.pop();
+                        if (p_val instanceof perc_err) {
+                            this.return_error(p_val);
+                            // Yield? return_error modifies ip and stack.
+                            // We need to `continue` outer loop?
+                            // Yes, `return_error` sets IP.
+                            // `continue` will restart loop with new IP.
+                            // But we need to check yield condition.
+                            // `return_error` might change frame.
+                            // We should probably `continue` immediately.
+                            // BUT `switch` break just goes to `ip++`.
+                            // `return_error` sets `ip` to `ret_addr`.
+                            // So we should NOT `ip++`.
+                            // We should `continue`.
+                            continue;
+                        }
                         break;
                     case 'dup':
                         const d = this.pop();
@@ -225,7 +241,12 @@ export class VM {
                         this.push(b);
                         break;
                     case 'init':
-                        this.current_frame.scope.define(op.name, this.pop(), [op.src_start, op.src_end]);
+                        const init_val = this.pop();
+                        if (init_val instanceof perc_err && !op.catch) {
+                            this.return_error(init_val);
+                            continue;
+                        }
+                        this.current_frame.scope.define(op.name, init_val, [op.src_start, op.src_end]);
                         if (this.in_debug_mode) {
                             this.events.on_var_update?.(op.name, this.current_frame.scope.lookup(op.name)!, [op.src_start, op.src_end]);
                         }
@@ -237,6 +258,10 @@ export class VM {
                         break;
                     case 'store':
                         const s_val = this.pop();
+                        if (s_val instanceof perc_err && !op.catch) {
+                            this.return_error(s_val);
+                            continue;
+                        }
                         if (!this.current_frame.scope.assign(op.name, s_val, [op.src_start, op.src_end])) {
                             throw new Error(`Cannot assign to uninitialized variable: ${op.name}`);
                         }
@@ -253,6 +278,13 @@ export class VM {
                         const u = this.pop();
                         this.push(this.apply_unary(u, op.op));
                         break;
+                    case 'typeof':
+                        const t_val = this.pop();
+                        let type_str = t_val.type;
+                        if (['i8', 'u8', 'i16', 'u16', 'i32', 'u32'].includes(type_str)) type_str = 'int';
+                        if (['f32', 'f64'].includes(type_str)) type_str = 'float';
+                        this.push(new perc_string(type_str));
+                        break;
                     case 'jump':
                         this.ip = op.addr;
                         // Check yield condition for jump
@@ -263,7 +295,12 @@ export class VM {
                         }
                         continue;
                     case 'jump_if_false':
-                        if (!this.pop().is_truthy()) {
+                        const jf_cond = this.pop();
+                        if (jf_cond instanceof perc_err) {
+                            this.return_error(jf_cond);
+                            continue;
+                        }
+                        if (!jf_cond.is_truthy()) {
                             this.ip = op.addr;
                             // Check yield condition
                             if (this.should_yield(op.src_start, op.src_end, last_src_start, last_src_end)) {
@@ -275,7 +312,12 @@ export class VM {
                         }
                         break;
                     case 'jump_if_true':
-                        if (this.pop().is_truthy()) {
+                        const jt_cond = this.pop();
+                        if (jt_cond instanceof perc_err) {
+                            this.return_error(jt_cond);
+                            continue;
+                        }
+                        if (jt_cond.is_truthy()) {
                             this.ip = op.addr;
                             // Check yield condition
                             if (this.should_yield(op.src_start, op.src_end, last_src_start, last_src_end)) {
@@ -287,7 +329,12 @@ export class VM {
                         }
                         break;
                     case 'get_iter':
-                        this.iterators.push(this.pop().get_iterator());
+                        const iter_obj = this.pop();
+                        if (iter_obj instanceof perc_err) {
+                            this.return_error(iter_obj);
+                            continue;
+                        }
+                        this.iterators.push(iter_obj.get_iterator());
                         break;
                     case 'iter_next':
                         const iter = this.iterators[this.iterators.length - 1];
@@ -302,6 +349,11 @@ export class VM {
                         break;
                     case 'call':
                         const func = this.pop();
+                        if (func instanceof perc_err) {
+                            // Can't call an error
+                            this.return_error(func);
+                            continue;
+                        }
                         if (!(func instanceof perc_closure)) throw new Error("Object is not callable");
 
                         // Arguments are already on the stack. Current frame is where they are.
@@ -363,43 +415,100 @@ export class VM {
                         break;
                     case 'new_array':
                         const arr_els: perc_type[] = [];
-                        for (let i = 0; i < op.size; i++) arr_els.push(this.pop());
+                        let arr_err: perc_err | null = null;
+                        for (let i = 0; i < op.size; i++) {
+                            const val = this.pop();
+                            arr_els.push(val);
+                            if (val instanceof perc_err && !arr_err) arr_err = val;
+                        }
+                        if (arr_err) {
+                            this.return_error(arr_err);
+                            continue;
+                        }
                         this.push(new perc_list(arr_els.reverse()));
                         break;
                     case 'new_map':
                         const m = new perc_map();
+                        let map_err: perc_err | null = null;
                         for (let i = 0; i < op.size; i++) {
                             const val = this.pop();
                             const key = this.pop();
+                            if (val instanceof perc_err && !map_err) map_err = val;
+                            if (key instanceof perc_err && !map_err) map_err = key;
                             m.set(key, val);
+                        }
+                        if (map_err) {
+                            this.return_error(map_err);
+                            continue;
                         }
                         this.push(m);
                         break;
                     case 'new_tuple':
                         // For now, treat tuples as lists or a restricted list
                         const tup_els: perc_type[] = [];
-                        for (let i = 0; i < op.size; i++) tup_els.push(this.pop());
+                        let tup_err: perc_err | null = null;
+                        for (let i = 0; i < op.size; i++) {
+                            const val = this.pop();
+                            tup_els.push(val);
+                            if (val instanceof perc_err && !tup_err) tup_err = val;
+                        }
+                        if (tup_err) {
+                            this.return_error(tup_err);
+                            continue;
+                        }
                         this.push(new perc_list(tup_els.reverse()));
                         break;
                     case 'index_load':
                         const idx = this.pop();
                         const obj = this.pop();
+                        if (idx instanceof perc_err) {
+                            this.return_error(idx);
+                            continue;
+                        }
+                        if (obj instanceof perc_err) {
+                            this.return_error(obj);
+                            continue;
+                        }
                         this.push(obj.get(idx));
                         break;
                     case 'index_store':
                         const st_val = this.pop();
                         const st_idx = this.pop();
                         const st_obj = this.pop();
+                        if (st_val instanceof perc_err && !op.catch) {
+                            this.return_error(st_val);
+                            continue;
+                        }
+                        if (st_idx instanceof perc_err) {
+                            this.return_error(st_idx);
+                            continue;
+                        }
+                        if (st_obj instanceof perc_err) {
+                            this.return_error(st_obj);
+                            continue;
+                        }
                         this.push(st_obj.set(st_idx, st_val));
                         break;
                     case 'member_load':
                         const m_obj = this.pop();
                         // Member load uses a string key
+                        if (m_obj instanceof perc_err) {
+                            this.return_error(m_obj);
+                            continue;
+                        }
                         this.push(m_obj.get(new perc_string(op.name)));
                         break;
                     case 'member_store':
                         const ms_val = this.pop();
                         const ms_obj = this.pop();
+                        if (ms_val instanceof perc_err && !op.catch) {
+                            this.return_error(ms_val);
+                            continue;
+                        }
+                        if (ms_obj instanceof perc_err) {
+                            this.return_error(ms_obj);
+                            continue;
+                        }
                         this.push(ms_obj.set(new perc_string(op.name), ms_val));
                         break;
                     case 'debugger':
@@ -413,7 +522,7 @@ export class VM {
                         break;
                 }
             } catch (e: any) {
-                this.events.on_error?.(e.message);
+                this.events.on_error?.(e.message, null);
                 return;
             }
 
@@ -484,6 +593,23 @@ export class VM {
         }
     }
 
+    private return_error(err: perc_err) {
+        if (this.call_stack.length === 0) {
+            this.ip = -1; // Halt
+            this.events.on_error?.(err.value, err.location); // Report unhandled error
+            return;
+        }
+
+        const finishing_frame = this.current_frame;
+        this.current_frame = this.call_stack.pop()!;
+        this.ip = finishing_frame.ret_addr;
+        this.push(err);
+
+        if (this.in_debug_mode) {
+            this.events.on_frame_pop?.();
+        }
+    }
+
     private push(val: perc_type) {
         this.stack.push(val);
         if (this.in_debug_mode) {
@@ -495,7 +621,6 @@ export class VM {
     private pop(): perc_type {
         if (this.stack.length === 0) throw new Error("Stack underflow");
         const v = this.stack.pop()!;
-        if (v instanceof perc_err) throw new Error(v.value);
 
         // Notify top update
         if (this.in_debug_mode) {

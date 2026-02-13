@@ -5,16 +5,30 @@ export class Console {
     private inputElement: JQuery<HTMLElement>;
     private currentTextColor: string | null = null;
     private currentLogEntry: JQuery<HTMLElement> | null = null;
+    public onErrorClick: ((loc: any) => void) | null = null;
 
     constructor(outputId: string, inputId: string) {
         this.element = $(`#${outputId}`);
         this.inputElement = $(`#${inputId}`);
         if (this.element.length === 0) throw new Error(`Console output element ${outputId} not found`);
         if (this.inputElement.length === 0) throw new Error(`Console input element ${inputId} not found`);
+
+        this.element.on('click', '.console-error-link', (e) => {
+            const data = $(e.currentTarget).data('loc');
+            if (data && this.onErrorClick) {
+                this.onErrorClick(data);
+            }
+        });
     }
 
-    private log(msg: string, type: 'log' | 'error' | 'status' | 'input') {
+    private log(msg: string, type: 'log' | 'error' | 'status' | 'input', location?: any) {
         const $entry = $('<div>').addClass('console-entry').addClass(type).text(msg);
+        if (type === 'error' && location) {
+            $entry.addClass('console-error-link');
+            $entry.attr('title', 'Click to show error location');
+            $entry.data('loc', location);
+            $entry.css('cursor', 'pointer');
+        }
         this.element.append($entry);
         this.element.scrollTop(this.element[0].scrollHeight);
     }
@@ -48,10 +62,10 @@ export class Console {
         this.currentTextColor = null;
     }
 
-    public error(msg: string) {
+    public error(msg: string, location?: any) {
         // Finalize any pending log entry before error
         this.currentLogEntry = null;
-        this.log(msg, 'error');
+        this.log(msg, 'error', location);
     }
 
     public status(msg: string) {

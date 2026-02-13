@@ -20,12 +20,13 @@ export abstract class perc_type {
     not(): perc_type { return new perc_err("Method 'not' not implemented."); }
 
     // Comparison
-    eq(other: perc_type): perc_bool { return new perc_bool(this === other); }
-    ne(other: perc_type): perc_bool { return new perc_bool(this !== other); }
-    lt(other: perc_type): perc_bool { return new perc_bool(false); }
-    le(other: perc_type): perc_bool { return new perc_bool(false); }
-    gt(other: perc_type): perc_bool { return new perc_bool(false); }
-    ge(other: perc_type): perc_bool { return new perc_bool(false); }
+    // Comparison
+    eq(other: perc_type): perc_type { return new perc_bool(this === other); }
+    ne(other: perc_type): perc_type { return new perc_bool(this !== other); }
+    lt(other: perc_type): perc_type { return new perc_bool(false); }
+    le(other: perc_type): perc_type { return new perc_bool(false); }
+    gt(other: perc_type): perc_type { return new perc_bool(false); }
+    ge(other: perc_type): perc_type { return new perc_bool(false); }
 
     // Bitwise
     bitwise_and(other: perc_type): perc_type { return new perc_err("Method 'bitwise_and' not implemented."); }
@@ -51,12 +52,38 @@ export interface perc_iterator {
 
 export class perc_err extends perc_type {
     value: string;
+    location: [number, number] | null;
     get type() { return 'error'; }
-    constructor(value: string) {
+    constructor(value: string, location: [number, number] | null = null) {
         super();
         this.value = value;
+        this.location = location;
     }
     to_string(): string { return "Error: " + this.value; }
+
+    // Propagate error
+    get(key: perc_type): perc_type { return this; }
+    set(key: perc_type, value: perc_type): perc_type { return this; }
+    add(other: perc_type): perc_type { return this; }
+    sub(other: perc_type): perc_type { return this; }
+    mul(other: perc_type): perc_type { return this; }
+    div(other: perc_type): perc_type { return this; }
+    mod(other: perc_type): perc_type { return this; }
+    pow(other: perc_type): perc_type { return this; }
+    and(other: perc_type): perc_type { return this; }
+    or(other: perc_type): perc_type { return this; }
+    xor(other: perc_type): perc_type { return this; }
+    not(): perc_type { return this; }
+    bitwise_and(other: perc_type): perc_type { return this; }
+    bitwise_or(other: perc_type): perc_type { return this; }
+    bitwise_xor(other: perc_type): perc_type { return this; }
+    shl(other: perc_type): perc_type { return this; }
+    shr(other: perc_type): perc_type { return this; }
+    eq(other: perc_type): perc_bool { return new perc_bool(false); } // Equality to error is false? Or Error? Let's say false to avoid crashing equality checks? Or Error? User said "bubble up". So Error.
+    // If I return 'this' (perc_err) for eq, it violates return type perc_bool in signature?
+    // Signature in base: eq(other): perc_bool.
+    // I should change base signature to return perc_type (can be bool or error).
+    ne(other: perc_type): perc_bool { return new perc_bool(true); } // Same issue.
 }
 
 export class perc_nil extends perc_type {

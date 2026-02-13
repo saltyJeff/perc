@@ -146,8 +146,8 @@ $(() => {
     };
 
     vm.set_events({
-        on_error: (msg) => {
-            appConsole.error(`Error: ${msg}`);
+        on_error: (msg, location) => {
+            appConsole.error(`Error: ${msg}`, location);
             debug.setStatus('Error');
             stopVM();
         },
@@ -195,6 +195,11 @@ $(() => {
             debug.updateVariables(vm.get_current_scope_values());
         }
     });
+
+    // Wire Console Error Click
+    appConsole.onErrorClick = (loc) => {
+        editor.highlightAndScroll(loc, 'error');
+    };
 
     vm.register_foreign('print', (...args) => {
         const msg = args.map(a => (a as any).to_string()).join(' ');
@@ -339,9 +344,12 @@ print("Result: " + result);
         } catch (err: any) {
             // Check for Peggy location
             if (err.location) {
-                const loc = err.location.start;
-                appConsole.error(`Error at Line ${loc.line}, Col ${loc.column}: ${err.message}`);
-                editor.highlightError(loc.line, loc.column);
+                const start = err.location.start;
+                const end = err.location.end;
+                // appConsole.error expects location for clicking. Editor expects line/col for pure highlighting.
+                // We pass [start, end] offsets to console for the link.
+                appConsole.error(`Error at Line ${start.line}, Col ${start.column}: ${err.message}`, [start.offset, end.offset]);
+                editor.highlightError(start.line, start.column);
             } else {
                 appConsole.error(`Error: ${err.message}`);
             }

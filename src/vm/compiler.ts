@@ -34,22 +34,22 @@ export class Compiler {
 
             case "VarInit":
                 this.visit(node.value);
-                this.emit({ type: 'init', name: node.name }, node);
+                this.emit({ type: 'init', name: node.name, catch: node.isCatch || false }, node);
                 break;
 
             case "VarChange":
                 if (node.target.type === "Identifier") {
                     this.visit(node.value);
-                    this.emit({ type: 'store', name: node.target.name }, node);
+                    this.emit({ type: 'store', name: node.target.name, catch: node.isCatch || false }, node);
                 } else if (node.target.type === "MemberExpression") {
                     this.visit(node.target.object);
                     if (node.target.propertyType === "dot") {
                         this.visit(node.value);
-                        this.emit({ type: 'member_store', name: node.target.property }, node);
+                        this.emit({ type: 'member_store', name: node.target.property, catch: node.isCatch || false }, node);
                     } else {
                         this.visit(node.target.index);
                         this.visit(node.value);
-                        this.emit({ type: 'index_store' }, node);
+                        this.emit({ type: 'index_store', catch: node.isCatch || false }, node);
                     }
                 }
                 break;
@@ -89,7 +89,7 @@ export class Compiler {
                 const forJumpOutIdx = this.opcodes.length;
                 this.emit({ type: 'jump_if_false', addr: 0 }, node);
 
-                this.emit({ type: 'init', name: node.item }, node);
+                this.emit({ type: 'init', name: node.item, catch: false }, node);
                 this.visit(node.body);
                 this.emit({ type: 'jump', addr: forStartAddr }, node);
                 (this.opcodes[forJumpOutIdx] as any).addr = this.opcodes.length;
@@ -125,6 +125,16 @@ export class Compiler {
                 break;
 
             case "CallExpression":
+                // Special handling for 'typeof' intrinsic
+                if (node.callee.type === "Identifier" && node.callee.name === "typeof") {
+                    if (node.arguments.length !== 1) {
+                        throw new Error("typeof expects exactly 1 argument");
+                    }
+                    this.visit(node.arguments[0]);
+                    this.emit({ type: 'typeof' }, node);
+                    break;
+                }
+
                 // If callee is an identifier and is a known foreign function, emit call_foreign
                 if (node.callee.type === "Identifier" && this.foreign_funcs.has(node.callee.name)) {
                     node.arguments.forEach((arg: any) => this.visit(arg));
@@ -177,7 +187,7 @@ export class Compiler {
                 // Stack: [..., a, b]
                 // Need to pop b, then a.
                 params.slice().reverse().forEach((p: string) => {
-                    this.emit({ type: 'init', name: p }, node);
+                    this.emit({ type: 'init', name: p, catch: false }, node);
                 });
 
                 this.visit(node.body);
@@ -195,7 +205,7 @@ export class Compiler {
                     name: node.type === "FunctionDeclaration" ? node.name : "anonymous"
                 }, node);
                 if (node.type === "FunctionDeclaration") {
-                    this.emit({ type: 'init', name: node.name }, node);
+                    this.emit({ type: 'init', name: node.name, catch: false }, node);
                 }
                 break;
 

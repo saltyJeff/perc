@@ -47,9 +47,9 @@ export class Editor {
                 const keywords = [
                     "init", "change", "function", "if", "then", "else", "while", "for", "in",
                     "return", "break", "continue", "new", "true", "false", "nil", "not",
-                    "is", "and", "or", "clone"
+                    "is", "and", "or", "clone", "typeof"
                 ];
-                const builtins = ["print"]; // Common built-in functions
+                const builtins = ["print", "println"]; // Common built-in functions
 
                 const completions = [
                     ...keywords.map(word => ({ caption: word, value: word, meta: "keyword" })),
@@ -96,28 +96,48 @@ export class Editor {
         this.editor.setReadOnly(readOnly);
     }
 
-    public highlightRange(start: number, end: number) {
+    public highlightAndScroll(loc: { start: number, end: number } | { line: number, column: number }, type: 'error' | 'debug' | 'info' = 'info') {
         const session = this.editor.session;
         const doc = session.getDocument();
-
-        // Convert character offsets to row/column
-        const startPos = doc.indexToPosition(start, 0);
-        const endPos = doc.indexToPosition(end, 0);
-
-        // Clear previous highlight
-        this.clearHighlight();
-
-        // Create Ace Range
-        // Create Ace Range
         const Range = (ace as any).require("ace/range").Range;
-        const range = new Range(startPos.row, startPos.column, endPos.row, endPos.column);
 
-        // Add marker. "text" means it stays with the text. 
-        // true means it's in the foreground
-        this.currentMarkerId = session.addMarker(range, "eval-marker", "text", true);
+        // Determine range and style
+        let range: any;
+        let className = "eval-marker";
+        if (type === 'error') className = "error-marker";
+        else if (type === 'debug') className = "eval-marker";
+        else className = "info-marker";
 
-        // Scroll to the highlight if not visible
-        this.editor.scrollToLine(startPos.row, true, true, () => { });
+        if ('line' in loc) {
+            // Line/Col based (1-indexed)
+            const row = loc.line - 1;
+            const col = loc.column - 1;
+            range = new Range(row, col, row, col + 1); // Highlight char
+        } else {
+            // Offset based
+            const startPos = doc.indexToPosition(loc.start, 0);
+            const endPos = doc.indexToPosition(loc.end, 0);
+            range = new Range(startPos.row, startPos.column, endPos.row, endPos.column);
+        }
+
+        // Clear existing markers of same type?
+        if (type === 'error') this.clearErrorHighlight();
+        else if (type === 'debug') this.clearHighlight();
+
+        const markerId = session.addMarker(range, className, "text", true);
+
+        if (type === 'error') this.currentErrorMarkerId = markerId;
+        else if (type === 'debug') this.currentMarkerId = markerId;
+
+        this.editor.scrollToLine(range.start.row, true, true, () => { });
+    }
+
+    public highlightRange(start: number, end: number) {
+        this.highlightAndScroll({ start, end }, 'debug');
+    }
+
+    public highlightError(line: number, column: number) {
+        this.highlightAndScroll({ line, column }, 'error');
     }
 
     public clearHighlight() {
@@ -125,24 +145,6 @@ export class Editor {
             this.editor.session.removeMarker(this.currentMarkerId);
             this.currentMarkerId = null;
         }
-    }
-
-    public highlightError(line: number, column: number) {
-        const session = this.editor.session;
-        this.clearErrorHighlight();
-
-        // Ace ranges are 0-indexed rows/cols
-        // Peggy usually returns 1-indexed lines and columns
-        const row = line - 1;
-        const col = column - 1;
-
-        const Range = (ace as any).require("ace/range").Range;
-
-        // Highlight the specific character or a safe fallback range
-        const range = new Range(row, col, row, col + 1);
-
-        this.currentErrorMarkerId = session.addMarker(range, "error-marker", "text", true);
-        this.editor.scrollToLine(row, true, true, () => { });
     }
 
     public clearErrorHighlight() {

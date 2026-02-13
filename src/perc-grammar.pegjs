@@ -46,13 +46,13 @@ Statement
     ) EOS { return s; }
 
 VarInit
-  = "init" _ name:Identifier _ "=" __ value:Expression {
-      return node("VarInit", { name: name.name, value });
+  = "init" _ name:Identifier _ op:("=?" / "=") __ value:Expression {
+      return node("VarInit", { name: name.name, value, isCatch: op === "=?" });
     }
 
 VarChange
-  = "change" _ target:(MemberExpression / Identifier) _ "=" __ value:Expression {
-      return node("VarChange", { target, value });
+  = "change" _ target:(MemberExpression / Identifier) _ op:("=?" / "=") __ value:Expression {
+      return node("VarChange", { target, value, isCatch: op === "=?" });
     }
 
 
