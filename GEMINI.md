@@ -39,3 +39,27 @@ While it executes the code, it emits events that are consumed by the debugger. T
 * new node being evaluated. This will be a `[start, end]` tuple of the range of the source code. 
 
 While the VM evaluates, it should mark the code editor read only. Then, it should highlight, in the code editor, the range of the source code that is being evaluated. This may or may not be possible 
+
+## UNDER WORK: INTERPRETER ARCHITECTURE
+The interpreter is implemented as a stack-based Virtual Machine using a generator for its main execution loop to facilitate stepping and debugging.
+
+### Opcodes
+- **Stack**: `push`, `pop`, `dup`, `swap`.
+- **Variables**: `init`, `load`, `store` (with semantic checks for `init` vs `change`).
+- **Control Flow**: `jump`, `jump_if_false`, `jump_if_true`.
+- **Loops**: `get_iter`, `iter_next` (for `for-in` support).
+- **Functions**: `call`, `ret`, `make_closure`.
+- **Foreign Functions**: `call_foreign` (allows JS integration).
+- **Data Structures**: `new_array`, `new_map`, `new_tuple`, `index_load/store`, `member_load/store`.
+
+### Type System
+All values descend from `perc_type`, which implements:
+- Arithmetic/Logic operator methods.
+- Truthiness checks.
+- Iterator support via `get_iterator()`.
+- IE11 compatible typed array backing for numeric types.
+
+### Execution Model
+- Main loop is a **Generator** yielding after each instruction.
+- Scope chain management for closure support.
+- Explicit error handling for semantic violations (e.g., assignment to uninitialized variables).

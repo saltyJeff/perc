@@ -1,0 +1,257 @@
+import type { opcode } from "./opcodes.ts";
+import { perc_type, perc_bool, perc_nil, perc_err, perc_closure, perc_number, perc_string, perc_list, perc_map } from "./perc_types.ts";
+import type { perc_iterator } from "./perc_types.ts";
+
+export interface VMEventMap {
+    on_frame_push: (frame: Frame) => void;
+    on_frame_pop: () => void;
+    on_var_update: (name: string, value: perc_type) => void;
+    on_stack_push: (value: perc_type) => void;
+    on_node_eval: (range: [number, number]) => void;
+    on_error: (err: string) => void;
+}
+
+export class Scope {
+    values: Map<string, perc_type> = new Map();
+    parent: Scope | null = null;
+    is_closure_scope: boolean = false;
+
+    constructor(parent: Scope | null = null) {
+        this.parent = parent;
+    }
+
+    define(name: string, value: perc_type) {
+        this.values.set(name, value);
+    }
+
+    assign(name: string, value: perc_type): boolean {
+        if (this.values.has(name)) {
+            this.values.set(name, value);
+            return true;
+        }
+        if (this.parent) return this.parent.assign(name, value);
+        return false;
+    }
+
+    lookup(name: string): perc_type | null {
+        if (this.values.has(name)) return this.values.get(name)!;
+        if (this.parent) return this.parent.lookup(name);
+        return null;
+    }
+}
+
+export class Frame {
+    scope: Scope;
+    ret_addr: number;
+    stack_start: number;
+
+    constructor(scope: Scope, ret_addr: number, stack_start: number) {
+        this.scope = scope;
+        this.ret_addr = ret_addr;
+        this.stack_start = stack_start;
+    }
+}
+
+export class VM {
+    private code: opcode[] = [];
+    private ip: number = 0;
+    private stack: perc_type[] = [];
+    private call_stack: Frame[] = [];
+    private current_frame: Frame;
+    private foreign_funcs: Map<string, (...args: perc_type[]) => perc_type> = new Map();
+    private events: Partial<VMEventMap> = {};
+    private iterators: perc_iterator[] = [];
+
+    constructor(code: opcode[]) {
+        this.code = code;
+        const global_scope = new Scope();
+        this.current_frame = new Frame(global_scope, -1, 0);
+    }
+
+    set_events(events: Partial<VMEventMap>) {
+        this.events = events;
+    }
+
+    register_foreign(name: string, func: (...args: perc_type[]) => perc_type) {
+        this.foreign_funcs.set(name, func);
+    }
+
+    *run(): Generator<void, void, void> {
+        while (this.ip >= 0 && this.ip < this.code.length) {
+            const op = this.code[this.ip];
+            this.events.on_node_eval?.([op.src_start, op.src_end]);
+
+            try {
+                switch (op.type) {
+                    case 'push':
+                        this.push(op.imm);
+                        break;
+                    case 'pop':
+                        this.pop();
+                        break;
+                    case 'dup':
+                        const d = this.pop();
+                        this.push(d);
+                        this.push(d);
+                        break;
+                    case 'swap':
+                        const a = this.pop();
+                        const b = this.pop();
+                        this.push(a);
+                        this.push(b);
+                        break;
+                    case 'init':
+                        this.current_frame.scope.define(op.name, this.pop());
+                        this.events.on_var_update?.(op.name, this.current_frame.scope.lookup(op.name)!);
+                        break;
+                    case 'load':
+                        const val = this.current_frame.scope.lookup(op.name);
+                        if (!val) throw new Error(`Undefined variable: ${op.name}`);
+                        this.push(val);
+                        break;
+                    case 'store':
+                        const s_val = this.pop();
+                        if (!this.current_frame.scope.assign(op.name, s_val)) {
+                            throw new Error(`Cannot assign to uninitialized variable: ${op.name}`);
+                        }
+                        this.events.on_var_update?.(op.name, s_val);
+                        break;
+                    case 'binary_op':
+                        const right = this.pop();
+                        const left = this.pop();
+                        this.push(this.apply_binary(left, right, op.op));
+                        break;
+                    case 'unary_op':
+                        const u = this.pop();
+                        this.push(this.apply_unary(u, op.op));
+                        break;
+                    case 'jump':
+                        this.ip = op.addr;
+                        continue;
+                    case 'jump_if_false':
+                        if (!this.pop().is_truthy()) {
+                            this.ip = op.addr;
+                            continue;
+                        }
+                        break;
+                    case 'jump_if_true':
+                        if (this.pop().is_truthy()) {
+                            this.ip = op.addr;
+                            continue;
+                        }
+                        break;
+                    case 'get_iter':
+                        this.iterators.push(this.pop().get_iterator());
+                        break;
+                    case 'iter_next':
+                        const iter = this.iterators[this.iterators.length - 1];
+                        const { value, done } = iter.next();
+                        if (!done) {
+                            this.push(value);
+                            this.push(new perc_bool(true));
+                        } else {
+                            this.iterators.pop();
+                            this.push(new perc_bool(false));
+                        }
+                        break;
+                    case 'call':
+                        const func = this.pop();
+                        if (!(func instanceof perc_closure)) throw new Error("Object is not callable");
+
+                        // Arguments are already on the stack. The function body will 'init' them.
+                        const call_scope = new Scope(func.captured as any);
+                        const new_frame = new Frame(call_scope, this.ip + 1, this.stack.length);
+                        this.call_stack.push(this.current_frame);
+                        this.current_frame = new_frame;
+                        this.ip = func.addr;
+                        this.events.on_frame_push?.(new_frame);
+                        continue;
+                    case 'ret':
+                        const ret_val = this.pop();
+                        const finishing_frame = this.current_frame;
+                        if (this.call_stack.length === 0) {
+                            this.ip = -1; // Halt
+                            break;
+                        }
+                        this.current_frame = this.call_stack.pop()!;
+                        this.ip = finishing_frame.ret_addr;
+                        this.push(ret_val);
+                        this.events.on_frame_pop?.();
+                        continue;
+                    case 'make_closure':
+                        this.push(new perc_closure(op.addr, this.current_frame.scope));
+                        break;
+                    case 'call_foreign':
+                        const for_args: perc_type[] = [];
+                        for (let i = 0; i < op.nargs; i++) for_args.push(this.pop());
+                        const foreign = this.foreign_funcs.get(op.name);
+                        if (!foreign) throw new Error(`Foreign function not found: ${op.name}`);
+                        this.push(foreign(...for_args.reverse())); // args were pushed in order, pop in reverse
+                        break;
+                    case 'new_array':
+                        const arr_els: perc_type[] = [];
+                        for (let i = 0; i < op.size; i++) arr_els.push(this.pop());
+                        this.push(new perc_list(arr_els.reverse()));
+                        break;
+                    case 'index_load':
+                        const idx = this.pop();
+                        const obj = this.pop();
+                        this.push(obj.get(idx));
+                        break;
+                    case 'index_store':
+                        const st_val = this.pop();
+                        const st_idx = this.pop();
+                        const st_obj = this.pop();
+                        this.push(st_obj.set(st_idx, st_val));
+                        break;
+                }
+            } catch (e: any) {
+                this.events.on_error?.(e.message);
+                return;
+            }
+
+            this.ip++;
+            yield;
+        }
+    }
+
+    private apply_binary(left: perc_type, right: perc_type, op: string): perc_type {
+        switch (op) {
+            case '+': return left.add(right);
+            case '-': return left.sub(right);
+            case '*': return left.mul(right);
+            case '/': return left.div(right);
+            case '%': return left.mod(right);
+            case '==': return left.eq(right);
+            case '!=': return left.ne(right);
+            case '<': return left.lt(right);
+            case '<=': return left.le(right);
+            case '>': return left.gt(right);
+            case '>=': return left.ge(right);
+            case '&&': return new perc_bool(left.is_truthy() && right.is_truthy());
+            case '||': return new perc_bool(left.is_truthy() || right.is_truthy());
+            default: return new perc_err(`Unknown operator: ${op}`);
+        }
+    }
+
+    private apply_unary(u: perc_type, op: string): perc_type {
+        switch (op) {
+            case '-': return new perc_number(0).sub(u);
+            case '!':
+            case 'not': return u.not();
+            default: return new perc_err(`Unknown unary operator: ${op}`);
+        }
+    }
+
+    private push(val: perc_type) {
+        this.stack.push(val);
+        this.events.on_stack_push?.(val);
+    }
+
+    private pop(): perc_type {
+        if (this.stack.length === 0) throw new Error("Stack underflow");
+        const v = this.stack.pop()!;
+        if (v instanceof perc_err) throw new Error(v.value);
+        return v;
+    }
+}
