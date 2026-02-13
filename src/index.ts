@@ -1,6 +1,10 @@
 import $ from 'jquery';
 import { Editor } from './editor/index';
 import { Debugger } from './debugger';
+import { VM } from './vm/index';
+import { perc_nil } from './vm/perc_types';
+// @ts-ignore
+import parser from './perc-grammar.pegjs';
 import './style.css';
 
 console.log('PerC IDE initializing...');
@@ -12,10 +16,37 @@ $(() => {
     // Initialize Components
     const editor = new Editor('editor');
     const debug = new Debugger('debugger-content');
+    const vm = new VM();
+
+    // Wiring VM to Debugger
+    vm.set_events({
+        on_error: (msg) => {
+            logToConsole(`Error: ${msg}`, 'error');
+            debug.setStatus('Error');
+        },
+        on_var_update: () => {
+            debug.updateVariables(vm.get_current_scope_values());
+        },
+        on_frame_push: () => {
+            debug.updateCallStack(vm.get_call_stack_names());
+            debug.updateVariables(vm.get_current_scope_values());
+        },
+        on_frame_pop: () => {
+            debug.updateCallStack(vm.get_call_stack_names());
+            debug.updateVariables(vm.get_current_scope_values());
+        }
+    });
+
+    vm.register_foreign('print', (...args) => {
+        const msg = args.map(a => a.to_string()).join(' ');
+        logToConsole(msg, 'log');
+        return new perc_nil();
+    });
 
     // Expose for debugging/future integration
     (window as any).editor = editor;
     (window as any).debug = debug;
+    (window as any).vm = vm;
 
     // Initial content
     editor.setValue(`// PerC Example Code
@@ -45,10 +76,29 @@ function test() {
             logToConsole(`> ${input}`, 'input');
             $(e.target).val('');
 
-            // TODO: Process input in user's VM REPL
-            logToConsole('REPL not implemented yet.', 'log');
+            try {
+                // For REPL, we want to maintain the current VM state, 
+                // but execute new code.
+                // We'll use a trick: execute it, then step it to completion.
+                vm.execute(input, parser);
+                runVM();
+            } catch (err: any) {
+                // Errors already logged by on_error event
+            }
         }
     });
+
+    const runVM = async () => {
+        debug.setStatus('Running...');
+        const runner = vm.run();
+        let result = runner.next();
+        while (!result.done) {
+            // In a real app we might want to yield to the main thread
+            // but for simple execution we can just loop.
+            result = runner.next();
+        }
+        debug.setStatus('Idle');
+    };
 
     $('#console-clear').on('click', () => {
         $consoleOut.empty();
@@ -204,7 +254,13 @@ function test() {
 
     $('#btn-run').on('click', () => {
         logToConsole("Run: Starting execution...", 'log');
-        // VM integration pending
+        const code = editor.getValue();
+        try {
+            vm.execute(code, parser);
+            runVM();
+        } catch (err) {
+            // Errors handled in events
+        }
     });
 
     $('#btn-build').on('click', () => {

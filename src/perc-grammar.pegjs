@@ -23,65 +23,73 @@
 }
 
 SourceFile
-  = _ stmts:(FunctionDeclaration / Statement)* {
+  = __ stmts:Statement* {
       return node("SourceFile", { body: stmts });
     }
 
 // --- Statements ---
 
 Statement
-  = VarInit
-  / VarChange
-  / ReturnStatement
-  / BreakStatement
-  / ContinueStatement
-  / IfStatement
-  / WhileStatement
-  / ForInStatement
-  / ExpressionStatement
-  / Block
+  = s:(
+      FunctionDeclaration
+    / VarInit
+    / VarChange
+    / ReturnStatement
+    / BreakStatement
+    / ContinueStatement
+    / IfStatement
+    / WhileStatement
+    / ForInStatement
+    / ExpressionStatement
+    / Block
+    ) EOS { return s; }
 
 VarInit
-  = "init" _ name:Identifier _ "=" _ value:Expression {
-      return node("VarInit", { name, value });
+  = "init" _ name:Identifier _ "=" __ value:Expression {
+      return node("VarInit", { name: name.name, value });
     }
 
 VarChange
-  = "change" _ target:(MemberExpression / Identifier) _ "=" _ value:Expression {
+  = "change" _ target:(MemberExpression / Identifier) _ "=" __ value:Expression {
       return node("VarChange", { target, value });
     }
 
 
 FunctionDeclaration
-  = "function" _ name:Identifier _ params:ParameterList _ body:Block {
-      return node("FunctionDeclaration", { name, parameters: params, body });
+  = "function" _ name:Identifier _ params:ParameterList __ body:Block {
+      return node("FunctionDeclaration", { name: name.name, parameters: params, body });
     }
 
 ParameterList
-  = "(" _ head:Identifier? tail:(_ "," _ Identifier)* _ trailing:","? _ ")" {
-      const params = head ? buildList(head, tail, 3) : [];
-      return params;
+  = "(" __ head:Identifier? tail:(__ "," __ Identifier)* __ trailing:","? __ ")" {
+      const params = head ? buildList(head.name, tail.map(t => t[3].name), -1) : []; // buildList expects tail to be array of elements
+      // Wait, buildList is: function buildList(head, tail, index) { return [head].concat(extractList(tail, index)); }
+      // tail is (_ "," _ Identifier)*. So element[3] is Identifier node.
+      // I'll rewrite params collection for clarity
+      const p = head ? [head.name] : [];
+      tail.forEach(t => p.push(t[3].name));
+      return p;
     }
 
 Block
-  = "{" _ stmts:Statement* "}" _ {
+  = "{" __ stmts:Statement* "}" {
       return node("Block", { body: stmts });
     }
 
 IfStatement
-  = "if" _ "(" _ condition:Expression _ ")" _ "then" _ consequence:Block alternative:(_ "else" _ (Block / IfStatement))? {
+  = "if" _ "(" __ condition:Expression __ ")" _ "then" __ consequence:Block alternative:(_ "else" _ (Block / IfStatement))? {
       const alt = alternative ? alternative[3] : null;
       return node("IfStatement", { condition, consequence, alternative: alt });
     }
 
 WhileStatement
-  = "while" _ "(" _ condition:Expression _ ")" _ "then" _ body:Block {
+  = "while" _ "(" __ condition:Expression __ ")" _ "then" __ body:Block {
       return node("WhileStatement", { condition, body });
     }
 
 ForInStatement
-  = "for" _ "(" _ "init" _ item:Identifier _ "in" _ collection:Expression _ ")" _ "then" _ body:Block {
-      return node("ForInStatement", { item, collection, body });
+  = "for" _ "(" __ "init" _ item:Identifier __ "in" __ collection:Expression __ ")" _ "then" __ body:Block {
+      return node("ForInStatement", { item: item.name, collection, body });
     }
 
 ReturnStatement
@@ -90,13 +98,13 @@ ReturnStatement
     }
 
 BreakStatement
-  = "break" _ { return node("BreakStatement", {}); }
+  = "break" { return node("BreakStatement", {}); }
 
 ContinueStatement
-  = "continue" _ { return node("ContinueStatement", {}); }
+  = "continue" { return node("ContinueStatement", {}); }
 
 ExpressionStatement
-  = expr:Expression _ {
+  = expr:Expression {
       return node("ExpressionStatement", { expression: expr });
     }
 
@@ -106,58 +114,58 @@ Expression
   = LogicalOr
 
 LogicalOr
-  = head:LogicalAnd tail:(_ ("||" / "or") _ LogicalAnd)* {
+  = head:LogicalAnd tail:(_ ("||" / "or") __ LogicalAnd)* {
       return buildBinaryExpression(head, tail);
     }
 
 LogicalAnd
-  = head:BitwiseOr tail:(_ ("&&" / "and") _ BitwiseOr)* {
+  = head:BitwiseOr tail:(_ ("&&" / "and") __ BitwiseOr)* {
       return buildBinaryExpression(head, tail);
     }
 
 BitwiseOr
-  = head:BitwiseXor tail:(_ "|" _ BitwiseXor)* {
+  = head:BitwiseXor tail:(_ "|" __ BitwiseXor)* {
       return buildBinaryExpression(head, tail);
     }
 
 BitwiseXor
-  = head:BitwiseAnd tail:(_ "^" _ BitwiseAnd)* {
+  = head:BitwiseAnd tail:(_ "^" __ BitwiseAnd)* {
       return buildBinaryExpression(head, tail);
     }
 
 BitwiseAnd
-  = head:Comparative tail:(_ "&" _ Comparative)* {
+  = head:Comparative tail:(_ "&" __ Comparative)* {
       return buildBinaryExpression(head, tail);
     }
 
 Comparative
-  = head:Shift tail:(_ ("==" / "!=" / "<=" / ">=" / "<" / ">" / "<=>" / "is") _ Shift)* {
+  = head:Shift tail:(_ ("==" / "!=" / "<=" / ">=" / "<" / ">" / "<=>" / "is") __ Shift)* {
       return buildBinaryExpression(head, tail);
     }
 
 Shift
-  = head:Additive tail:(_ ("<<" / ">>") _ Additive)* {
+  = head:Additive tail:(_ ("<<" / ">>") __ Additive)* {
       return buildBinaryExpression(head, tail);
     }
 
 Additive
-  = head:Multiplicative tail:(_ ("+" / "-") _ Multiplicative)* {
+  = head:Multiplicative tail:(_ ("+" / "-") __ Multiplicative)* {
       return buildBinaryExpression(head, tail);
     }
 
 Multiplicative
-  = head:Power tail:(_ ("*" / "/" / "%") _ Power)* {
+  = head:Power tail:(_ ("*" / "/" / "%") __ Power)* {
       return buildBinaryExpression(head, tail);
     }
 
 Power
-  = head:Unary _ "**" _ right:Power {
+  = head:Unary _ "**" __ right:Power {
       return node("BinaryExpression", { left: head, operator: "**", right: right });
     }
   / Unary
 
 Unary
-  = op:("!" / "not" / "-" / "+") _ operand:Unary {
+  = op:("!" / "not" / "-" / "+") __ operand:Unary {
       return node("UnaryExpression", { operator: op, operand });
     }
   / Instantiation
@@ -173,7 +181,7 @@ Primary
       return tail.reduce((result, element) => {
         const access = element[1];
         if (access.type === "MemberAccess") {
-          return node("MemberExpression", { object: result, property: access.property, propertyType: access.propertyType });
+          return node("MemberExpression", { object: result, property: access.property.name, propertyType: access.propertyType });
         } else if (access.type === "IndexAccess") {
           return node("MemberExpression", { object: result, index: access.index });
         } else if (access.type === "CallAccess") {
@@ -188,7 +196,7 @@ MemberExpression
       return tail.reduce((result, element) => {
         const access = element[1];
         if (access.type === "MemberAccess") {
-          return node("MemberExpression", { object: result, property: access.property, propertyType: access.propertyType });
+          return node("MemberExpression", { object: result, property: access.property.name, propertyType: access.propertyType });
         } else {
           return node("MemberExpression", { object: result, index: access.index });
         }
@@ -197,13 +205,13 @@ MemberExpression
 
 MemberAccess
   = "." _ property:Identifier { return { type: "MemberAccess", property, propertyType: "dot" }; }
-  / "[" _ index:Expression _ "]" _ { return { type: "IndexAccess", index }; }
+  / "[" __ index:Expression __ "]" { return { type: "IndexAccess", index }; }
 
 CallAccess
   = args:ArgumentList { return { type: "CallAccess", arguments: args }; }
 
 ArgumentList
-  = "(" _ head:Expression? tail:(_ "," _ Expression)* _ trailing:","? _ ")" _ {
+  = "(" __ head:Expression? tail:(__ "," __ Expression)* __ trailing:","? __ ")" {
       return head ? buildList(head, tail, 3) : [];
     }
 
@@ -214,10 +222,10 @@ Atom
   / FunctionLiteral
 
 ParenthesizedExpression
-  = "(" _ expr:Expression _ ")" _ { return expr; }
+  = "(" __ expr:Expression __ ")" { return expr; }
 
 FunctionLiteral
-  = "function" _ params:ParameterList _ body:Block {
+  = "function" _ params:ParameterList __ body:Block {
       return node("FunctionLiteral", { parameters: params, body });
     }
 
@@ -232,18 +240,18 @@ Literal
   / NilLiteral
 
 NilLiteral
-  = "nil" _ { return node("NilLiteral", {}); }
+  = "nil" { return node("NilLiteral", {}); }
 
 BooleanLiteral
-  = "true" _ { return node("BooleanLiteral", { value: true }); }
-  / "false" _ { return node("BooleanLiteral", { value: false }); }
+  = "true" { return node("BooleanLiteral", { value: true }); }
+  / "false" { return node("BooleanLiteral", { value: false }); }
 
 IntegerLiteral
   = digits:$( "0x" [0-9a-fA-F] ("_"? [0-9a-fA-F])*
            / "0b" [01] ("_"? [01])*
            / "0o" [0-7] ("_"? [0-7])*
            / [0-9] ("_"? [0-9])*
-           ) _ {
+           ) {
       return node("IntegerLiteral", { value: digits });
     }
 
@@ -251,7 +259,7 @@ FloatLiteral
   = digits:$( [0-9] ("_"? [0-9])* "." [0-9] ("_"? [0-9])* Exponent?
            / "." [0-9] ("_"? [0-9])* Exponent?
            / [0-9] ("_"? [0-9])* Exponent
-           ) _ {
+           ) {
       return node("FloatLiteral", { value: digits });
     }
 
@@ -259,7 +267,7 @@ Exponent
   = [eE] [+-]? [0-9] ("_"? [0-9])*
 
 StringLiteral
-  = "\"" chars:StringChar* "\"" _ {
+  = "\"" chars:StringChar* "\"" {
       return node("StringLiteral", { value: chars.join("") });
     }
 
@@ -268,7 +276,7 @@ StringChar
   / "\\" sequence:EscapeSequence { return sequence; }
 
 CharLiteral
-  = "'" char:( !("'" / "\\") c:. { return c; } / "\\" s:EscapeSequence { return s; } ) "'" _ {
+  = "'" char:( !("'" / "\\") c:. { return c; } / "\\" s:EscapeSequence { return s; } ) "'" {
       return node("CharLiteral", { value: char });
     }
 
@@ -288,29 +296,29 @@ EscapeSequence
   / "U" digits:$( [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] ) { return String.fromCodePoint(parseInt(digits, 16)); }
 
 ArrayLiteral
-  = "[" _ head:Expression? tail:(_ "," _ Expression)* _ trailing:","? _ "]" _ {
+  = "[" __ head:Expression? tail:(__ "," __ Expression)* __ trailing:","? __ "]" {
       return node("ArrayLiteral", { elements: head ? buildList(head, tail, 3) : [] });
     }
 
 MapLiteral
-  = "{" _ head:Pair? tail:(_ "," _ Pair)* _ trailing:","? _ "}" _ {
+  = "{" __ head:Pair? tail:(__ "," __ Pair)* __ trailing:","? __ "}" {
       return node("MapLiteral", { pairs: head ? buildList(head, tail, 3) : [] });
     }
 
 Pair
-  = key:Expression _ ":" _ value:Expression {
+  = key:Expression __ ":" __ value:Expression {
       return node("Pair", { key, value });
     }
 
 TupleLiteral
-  = "(|" _ head:Expression? tail:(_ "," _ Expression)* _ trailing:","? _ "|)" _ {
+  = "(|" __ head:Expression? tail:(__ "," __ Expression)* __ trailing:","? __ "|)" {
       return node("TupleLiteral", { elements: head ? buildList(head, tail, 3) : [] });
     }
 
 // --- Identifiers and Keywords ---
 
 Identifier
-  = !Keyword name:IdentifierName _ { return name; }
+  = !Keyword name:$(IdentifierName) { return node("Identifier", { name }); }
 
 IdentifierName
   = $([a-zA-Z_] [a-zA-Z0-9_]*)
@@ -341,12 +349,34 @@ Keyword
 
 // --- Extras ---
 
-_ "whitespace"
+EOS
+  = _ ";" __
+  / _ NewLine __
+  / _ &"}"
+  / _ EOF
+
+_ "whitespace (no newlines)"
+  = (WhiteSpaceNoNL / CommentNoNL)*
+
+__ "whitespace (with newlines)"
   = (WhiteSpace / Comment)*
+
+WhiteSpaceNoNL
+  = [ \t]
 
 WhiteSpace
   = [ \t\n\r]
 
+NewLine
+  = "\r\n" / "\n" / "\r"
+
 Comment
   = "//" [^\n]*
   / "/*" (!"*/" .)* "*/"
+
+CommentNoNL
+  = "//" [^\n]*
+  / "/*" (!("*/" / [\r\n]) .)* "*/"
+
+EOF
+  = !.

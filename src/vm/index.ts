@@ -1,6 +1,7 @@
 import type { opcode } from "./opcodes.ts";
 import { perc_type, perc_bool, perc_nil, perc_err, perc_closure, perc_number, perc_string, perc_list, perc_map } from "./perc_types.ts";
 import type { perc_iterator } from "./perc_types.ts";
+import { Compiler } from "./compiler.ts";
 
 export interface VMEventMap {
     on_frame_push: (frame: Frame) => void;
@@ -57,15 +58,53 @@ export class VM {
     private ip: number = 0;
     private stack: perc_type[] = [];
     private call_stack: Frame[] = [];
-    private current_frame: Frame;
+    private current_frame!: Frame;
     private foreign_funcs: Map<string, (...args: perc_type[]) => perc_type> = new Map();
     private events: Partial<VMEventMap> = {};
     private iterators: perc_iterator[] = [];
 
-    constructor(code: opcode[]) {
+    constructor(code: opcode[] = []) {
         this.code = code;
+        this.reset_state();
+    }
+
+    reset_state() {
+        this.ip = 0;
+        this.stack = [];
+        this.call_stack = [];
+        this.iterators = [];
         const global_scope = new Scope();
         this.current_frame = new Frame(global_scope, -1, 0);
+    }
+
+    execute(source: string, parser: any) {
+        try {
+            const ast = parser.parse(source);
+            const compiler = new Compiler();
+            this.code = compiler.compile(ast);
+            this.reset_state();
+        } catch (e: any) {
+            this.events.on_error?.(e.message);
+            throw e;
+        }
+    }
+
+    get_call_stack_names(): string[] {
+        const names = this.call_stack.map((_, i) => `Frame ${i}`);
+        names.push("Current Frame");
+        return names;
+    }
+
+    get_current_scope_values(): Record<string, string> {
+        const res: Record<string, string> = {};
+        let s: Scope | null = this.current_frame.scope;
+        while (s) {
+            for (const [k, v] of s.values.entries()) {
+                if (!(k in res)) res[k] = v.to_string();
+            }
+            s = s.parent;
+        }
+        return res;
     }
 
     set_events(events: Partial<VMEventMap>) {
@@ -193,6 +232,21 @@ export class VM {
                         for (let i = 0; i < op.size; i++) arr_els.push(this.pop());
                         this.push(new perc_list(arr_els.reverse()));
                         break;
+                    case 'new_map':
+                        const m = new perc_map();
+                        for (let i = 0; i < op.size; i++) {
+                            const val = this.pop();
+                            const key = this.pop();
+                            m.set(key, val);
+                        }
+                        this.push(m);
+                        break;
+                    case 'new_tuple':
+                        // For now, treat tuples as lists or a restricted list
+                        const tup_els: perc_type[] = [];
+                        for (let i = 0; i < op.size; i++) tup_els.push(this.pop());
+                        this.push(new perc_list(tup_els.reverse()));
+                        break;
                     case 'index_load':
                         const idx = this.pop();
                         const obj = this.pop();
@@ -203,6 +257,16 @@ export class VM {
                         const st_idx = this.pop();
                         const st_obj = this.pop();
                         this.push(st_obj.set(st_idx, st_val));
+                        break;
+                    case 'member_load':
+                        const m_obj = this.pop();
+                        // Member load uses a string key
+                        this.push(m_obj.get(new perc_string(op.name)));
+                        break;
+                    case 'member_store':
+                        const ms_val = this.pop();
+                        const ms_obj = this.pop();
+                        this.push(ms_obj.set(new perc_string(op.name), ms_val));
                         break;
                 }
             } catch (e: any) {

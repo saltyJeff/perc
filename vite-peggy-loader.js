@@ -41,7 +41,14 @@ export default function peggyLoader(options) {
             }
 
             const methodName = typeof peggy.generate === 'function' ? 'generate' : 'buildParser';
-            return peggy[methodName](source, pegOptions);
+            let generated = peggy[methodName](source, pegOptions);
+
+            // If output is source and format is ES, append a default export for convenience
+            if (pegOptions.output === 'source' && pegOptions.format === 'es') {
+                generated += '\nexport default { parse: peg$parse, SyntaxError: peg$SyntaxError, StartRules: peg$allowedStartRules };';
+            }
+
+            return generated;
         },
     };
 }
