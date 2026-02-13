@@ -5,7 +5,17 @@ export class Compiler {
     private opcodes: opcode[] = [];
     private foreign_funcs: Set<string>;
 
-    constructor(foreign_funcs: string[] = ['print', 'println', 'text_color_rgb', 'text_color_hsl', 'i8', 'u8', 'i16', 'u16', 'i32', 'u32', 'f32', 'f64', 'int', 'float', 'input']) {
+    constructor(foreign_funcs: string[] = [
+        'print', 'println', 'input',
+        'i8', 'u8', 'i16', 'u16', 'i32', 'u32', 'f32', 'f64', 'int', 'float',
+        'rgb', 'hsl', 'text_color',
+        'window', 'end_window',
+        'button', 'slider', 'textbox', 'checkbox', 'radio',
+        'rect', 'circle', 'line', 'polygon', 'text',
+        'fill', 'stroke', 'translate', 'scale', 'rotate',
+        'group', 'end_group',
+        'image', 'sprite'
+    ]) {
         this.foreign_funcs = new Set(foreign_funcs);
     }
 

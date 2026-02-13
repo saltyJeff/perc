@@ -113,14 +113,60 @@ export class VM {
             return new perc_nil(); // Placeholder, will be replaced by resume_with_input
         });
 
-        // Text color functions - these will be overridden by the main app to connect to the console
-        this.register_foreign('text_color_rgb', (r: perc_type, g: perc_type, b: perc_type) => {
+        // Color functions
+        this.register_foreign('rgb', (r: perc_type, g: perc_type, b: perc_type) => {
+            const m = new perc_map();
+            m.set(new perc_string('r'), r);
+            m.set(new perc_string('g'), g);
+            m.set(new perc_string('b'), b);
+            return m;
+        });
+
+        this.register_foreign('hsl', (h: perc_type, s: perc_type, l: perc_type) => {
+            // HSL to RGB conversion
+            const hv = h instanceof perc_number ? h.buffer[0] : 0;
+            const sv = s instanceof perc_number ? s.buffer[0] / 100 : 0;
+            const lv = l instanceof perc_number ? l.buffer[0] / 100 : 0;
+
+            const k = (n: number) => (n + hv / 30) % 12;
+            const a = sv * Math.min(lv, 1 - lv);
+            const f = (n: number) => lv - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+
+            const r = Math.round(f(0) * 255);
+            const g = Math.round(f(8) * 255);
+            const b = Math.round(f(4) * 255);
+
+            const m = new perc_map();
+            m.set(new perc_string('r'), new perc_number(r, 'u8'));
+            m.set(new perc_string('g'), new perc_number(g, 'u8'));
+            m.set(new perc_string('b'), new perc_number(b, 'u8'));
+            return m;
+        });
+
+        // Text color function - this will be overridden by the main app to connect to the console
+        this.register_foreign('text_color', (color: perc_type) => {
             return new perc_nil(); // Default no-op, will be overridden
         });
 
-        this.register_foreign('text_color_hsl', (h: perc_type, s: perc_type, l: perc_type) => {
-            return new perc_nil(); // Default no-op, will be overridden
-        });
+        // GUI Functions placeholders
+        const guiFuncs = [
+            'window', 'end_window',
+            'button', 'input', 'slider', 'checkbox', 'radio',
+            'circle', 'rect', 'line', 'polygon', 'text',
+            'fill', 'stroke', 'scale', 'translate', 'rotate',
+            'group', 'end_group',
+            'image', 'sprite'
+        ];
+        for (const func of guiFuncs) {
+            this.register_foreign(func, (...args: perc_type[]) => {
+                if (func === 'button') return new perc_bool(false);
+                if (func === 'input') return new perc_string("");
+                if (func === 'slider') return new perc_number(0);
+                if (func === 'checkbox') return new perc_bool(false);
+                if (func === 'radio') return new perc_bool(false);
+                return new perc_nil();
+            });
+        }
     }
 
     reset_state() {
@@ -144,6 +190,7 @@ export class VM {
             this.reset_state();
         } catch (e: any) {
             const loc: [number, number] | null = e.location ? [e.location.start.offset, e.location.end.offset] : null;
+            console.error(e.message, loc);
             this.events.on_error?.(e.message, loc);
             throw e;
         }
@@ -532,6 +579,7 @@ export class VM {
                         break;
                 }
             } catch (e: any) {
+                console.error(e.message);
                 this.events.on_error?.(e.message, null);
                 return;
             }
@@ -606,6 +654,7 @@ export class VM {
     private return_error(err: perc_err) {
         if (this.call_stack.length === 0) {
             this.ip = -1; // Halt
+            console.error(e.message);
             this.events.on_error?.(err.value, err.location); // Report unhandled error
             return;
         }

@@ -3,7 +3,8 @@ import { Editor } from './editor/index';
 import { Debugger } from './debugger/index';
 import { Console } from './console/index';
 import { VM } from './vm/index';
-import { perc_nil, perc_string, perc_number } from './vm/perc_types';
+import { GUIManager } from './gui_window/manager';
+import { perc_type, perc_nil, perc_string, perc_number, perc_map, perc_bool, perc_list } from './vm/perc_types';
 // @ts-ignore
 import parser from './perc-grammar.pegjs';
 import './style.css';
@@ -23,6 +24,7 @@ $(() => {
     const debug = new Debugger('debugger-content');
     const appConsole = new Console('console-output', 'repl-input');
     const vm = new VM();
+    const gui = new GUIManager();
 
     // Wiring VM to Debugger
     let currentRunner: Generator<void, void, void> | null = null;
@@ -147,7 +149,7 @@ $(() => {
 
     vm.set_events({
         on_error: (msg, location) => {
-            appConsole.error(`Error: ${msg}`, location);
+            appConsole.error(`JS Error: ${msg}`, location);
             debug.setStatus('Error');
             stopVM();
         },
@@ -218,51 +220,233 @@ $(() => {
         return new perc_nil();
     });
 
-    vm.register_foreign('text_color_rgb', (r, g, b) => {
-        // Validate that all arguments are numbers
-        if (!(r instanceof perc_number)) {
-            throw new Error(`text_color_rgb: first argument must be a number, got ${r.to_string()}`);
+    vm.register_foreign('text_color', (color: perc_type) => {
+        if (!(color instanceof perc_map)) {
+            throw new Error(`text_color: argument must be a color map (from rgb() or hsl()), got ${color.type}`);
         }
-        if (!(g instanceof perc_number)) {
-            throw new Error(`text_color_rgb: second argument must be a number, got ${g.to_string()}`);
-        }
-        if (!(b instanceof perc_number)) {
-            throw new Error(`text_color_rgb: third argument must be a number, got ${b.to_string()}`);
-        }
-        const rVal = Math.floor(r.buffer[0]);
-        const gVal = Math.floor(g.buffer[0]);
-        const bVal = Math.floor(b.buffer[0]);
+        const r = color.get(new perc_string('r'));
+        const g = color.get(new perc_string('g'));
+        const b = color.get(new perc_string('b'));
 
-        // Clamp values to 0-255
-        const rClamped = Math.max(0, Math.min(255, rVal));
-        const gClamped = Math.max(0, Math.min(255, gVal));
-        const bClamped = Math.max(0, Math.min(255, bVal));
+        if (!(r instanceof perc_number) || !(g instanceof perc_number) || !(b instanceof perc_number)) {
+            throw new Error("text_color: invalid color map components");
+        }
 
-        appConsole.setTextColor(`rgb(${rClamped}, ${gClamped}, ${bClamped})`);
+        const rVal = Math.max(0, Math.min(255, Math.floor(r.buffer[0])));
+        const gVal = Math.max(0, Math.min(255, Math.floor(g.buffer[0])));
+        const bVal = Math.max(0, Math.min(255, Math.floor(b.buffer[0])));
+
+        appConsole.setTextColor(`rgb(${rVal}, ${gVal}, ${bVal})`);
         return new perc_nil();
     });
 
-    vm.register_foreign('text_color_hsl', (h, s, l) => {
-        // Validate that all arguments are numbers
-        if (!(h instanceof perc_number)) {
-            throw new Error(`text_color_hsl: first argument must be a number, got ${h.to_string()}`);
-        }
-        if (!(s instanceof perc_number)) {
-            throw new Error(`text_color_hsl: second argument must be a number, got ${s.to_string()}`);
-        }
-        if (!(l instanceof perc_number)) {
-            throw new Error(`text_color_hsl: third argument must be a number, got ${l.to_string()}`);
-        }
-        const hVal = h.buffer[0];
-        const sVal = s.buffer[0];
-        const lVal = l.buffer[0];
+    // --- GUI Functions ---
+    vm.register_foreign('window', () => {
+        gui.openWindow();
+        gui.clearCommands();
+        return new perc_nil();
+    });
 
-        // Clamp hue to 0-360, saturation and lightness to 0-100
-        const hClamped = ((hVal % 360) + 360) % 360; // Handle negative values
-        const sClamped = Math.max(0, Math.min(100, sVal));
-        const lClamped = Math.max(0, Math.min(100, lVal));
+    vm.register_foreign('end_window', () => {
+        gui.flushCommands();
+        return new perc_nil();
+    });
 
-        appConsole.setTextColor(`hsl(${hClamped}, ${sClamped}%, ${lClamped}%)`);
+    vm.register_foreign('button', (text, x, y) => {
+        const id = `btn_${text.to_string()}_${x.to_string()}_${y.to_string()}`;
+        gui.pushCommand('button', { id, text: text.to_string(), x: (x as any).buffer[0], y: (y as any).buffer[0] });
+        return new perc_bool(gui.isClicked(id));
+    });
+
+    vm.register_foreign('fill', (color) => {
+        if (color instanceof perc_map) {
+            const r = (color.get(new perc_string('r')) as any).buffer[0];
+            const g = (color.get(new perc_string('g')) as any).buffer[0];
+            const b = (color.get(new perc_string('b')) as any).buffer[0];
+            gui.pushCommand('fill', { r, g, b });
+        }
+        return new perc_nil();
+    });
+
+    vm.register_foreign('rect', (x, y, w, h) => {
+        gui.pushCommand('rect', {
+            x: (x as any).buffer[0],
+            y: (y as any).buffer[0],
+            w: (w as any).buffer[0],
+            h: (h as any).buffer[0]
+        });
+        return new perc_nil();
+    });
+
+    vm.register_foreign('circle', (x, y, r) => {
+        gui.pushCommand('circle', {
+            x: (x as any).buffer[0],
+            y: (y as any).buffer[0],
+            r: (r as any).buffer[0]
+        });
+        return new perc_nil();
+    });
+
+    vm.register_foreign('line', (x1, y1, x2, y2) => {
+        gui.pushCommand('line', {
+            x1: (x1 as any).buffer[0],
+            y1: (y1 as any).buffer[0],
+            x2: (x2 as any).buffer[0],
+            y2: (y2 as any).buffer[0]
+        });
+        return new perc_nil();
+    });
+
+    vm.register_foreign('text', (text, x, y, align) => {
+        const alignment = align instanceof perc_string ? align.to_string() : 'left';
+        gui.pushCommand('text', {
+            text: text.to_string(),
+            x: (x as any).buffer[0],
+            y: (y as any).buffer[0],
+            align: alignment
+        });
+        return new perc_nil();
+    });
+
+    vm.register_foreign('stroke', (color, width) => {
+        if (color instanceof perc_map) {
+            const r = (color.get(new perc_string('r')) as any).buffer[0];
+            const g = (color.get(new perc_string('g')) as any).buffer[0];
+            const b = (color.get(new perc_string('b')) as any).buffer[0];
+            gui.pushCommand('stroke', { r, g, b, width: width instanceof perc_number ? width.buffer[0] : 1 });
+        }
+        return new perc_nil();
+    });
+
+    vm.register_foreign('slider', (x, y) => {
+        const id = `slider_${(x as any).buffer[0]}_${(y as any).buffer[0]}`;
+        const currentVal = gui.getInput(id + '_val') || 0;
+        gui.pushCommand('slider', { id, x: (x as any).buffer[0], y: (y as any).buffer[0], val: currentVal });
+        return new perc_number(currentVal);
+    });
+
+    vm.register_foreign('translate', (x, y) => {
+        gui.pushCommand('translate', { x: (x as any).buffer[0], y: (y as any).buffer[0] });
+        return new perc_nil();
+    });
+
+    vm.register_foreign('scale', (x, y) => {
+        gui.pushCommand('scale', { x: (x as any).buffer[0], y: (y as any).buffer[0] });
+        return new perc_nil();
+    });
+
+    vm.register_foreign('rotate', (angle) => {
+        gui.pushCommand('rotate', { angle: (angle as any).buffer[0] });
+        return new perc_nil();
+    });
+
+    vm.register_foreign('group', () => {
+        gui.pushCommand('save', {});
+        return new perc_nil();
+    });
+
+    vm.register_foreign('end_group', () => {
+        gui.pushCommand('restore', {});
+        return new perc_nil();
+    });
+
+    vm.register_foreign('image', (x, y, w, h, url) => {
+        gui.pushCommand('image', {
+            x: (x as any).buffer[0],
+            y: (y as any).buffer[0],
+            w: (w as any).buffer[0],
+            h: (h as any).buffer[0],
+            url: url.to_string()
+        });
+        return new perc_nil();
+    });
+
+    vm.register_foreign('sprite', (x, y, w, h, data) => {
+        const pixels: any[] = [];
+        if (data instanceof perc_list) {
+            for (const pixel of data.elements) {
+                if (pixel instanceof perc_map) {
+                    pixels.push({
+                        r: (pixel.get(new perc_string('r')) as any).buffer[0],
+                        g: (pixel.get(new perc_string('g')) as any).buffer[0],
+                        b: (pixel.get(new perc_string('b')) as any).buffer[0]
+                    });
+                }
+            }
+        }
+        gui.pushCommand('sprite', {
+            x: (x as any).buffer[0],
+            y: (y as any).buffer[0],
+            w: (w as any).buffer[0],
+            h: (h as any).buffer[0],
+            data: pixels
+        });
+        return new perc_nil();
+    });
+
+    vm.register_foreign('polygon', (x, y, points) => {
+        const pts: { x: number, y: number }[] = [];
+        if (points instanceof perc_list) {
+            for (const p of points.elements) {
+                if (p instanceof perc_map) {
+                    pts.push({
+                        x: (p.get(new perc_string('x')) as any).buffer[0],
+                        y: (p.get(new perc_string('y')) as any).buffer[0]
+                    });
+                }
+            }
+        }
+        gui.pushCommand('polygon', { x: (x as any).buffer[0], y: (y as any).buffer[0], points: pts });
+        return new perc_nil();
+    });
+
+    vm.register_foreign('update_image', (x, y, w, h, url) => {
+        gui.pushCommand('update_image', {
+            x: (x as any).buffer[0],
+            y: (y as any).buffer[0],
+            w: (w as any).buffer[0],
+            h: (h as any).buffer[0],
+            url: url.to_string()
+        });
+        return new perc_nil();
+    });
+
+    vm.register_foreign('input', (x, y) => {
+        const id = `input_${(x as any).buffer[0]}_${(y as any).buffer[0]}`;
+        const val = gui.getInput(id + '_val') || "";
+        gui.pushCommand('input', { id, x: (x as any).buffer[0], y: (y as any).buffer[0] });
+        return new perc_string(val);
+    });
+
+    vm.register_foreign('checkbox', (x, y) => {
+        const id = `chk_${(x as any).buffer[0]}_${(y as any).buffer[0]}`;
+        const val = gui.getInput(id + '_val') || false;
+        gui.pushCommand('checkbox', { id, x: (x as any).buffer[0], y: (y as any).buffer[0], val });
+        return new perc_bool(val);
+    });
+
+    vm.register_foreign('radio', (x, y) => {
+        const id = `rad_${(x as any).buffer[0]}_${(y as any).buffer[0]}`;
+        const val = gui.getInput(id + '_val') || false;
+        gui.pushCommand('radio', { id, x: (x as any).buffer[0], y: (y as any).buffer[0], val });
+        return new perc_bool(val);
+    });
+
+    vm.register_foreign('sprite', (x, y, w, h, data) => {
+        // data is a list of color maps
+        const pixels: any[] = [];
+        if (data instanceof perc_list) {
+            for (const p of data.elements) {
+                if (p instanceof perc_map) {
+                    pixels.push({
+                        r: (p.get(new perc_string('r')) as any).buffer[0],
+                        g: (p.get(new perc_string('g')) as any).buffer[0],
+                        b: (p.get(new perc_string('b')) as any).buffer[0]
+                    });
+                }
+            }
+        }
+        gui.pushCommand('sprite', { x: (x as any).buffer[0], y: (y as any).buffer[0], w: (w as any).buffer[0], h: (h as any).buffer[0], data: pixels });
         return new perc_nil();
     });
 
@@ -273,20 +457,67 @@ $(() => {
     (window as any).appConsole = appConsole;
 
     // Initial content
-    // Initial content
-    editor.setValue(`// Recursive Fibonacci Example
+    editor.setValue(`// PerC GUI Kitchen Sink
+init x = 100;
+init y = 100;
+init msg = "Click me!";
+init val = 50;
 
-function fib(n) {
-    if (n <= 1) then { 
-        return n; 
+while(true) then {
+    window();
+    
+    fill(rgb(255, 255, 255));
+    rect(0, 0, 640, 480);
+    
+    fill(rgb(0, 0, 0));
+    text("Welcome to PerC GUI!", 320, 30, "center");
+    
+    if (button(msg, 10, 50)) then {
+        change msg = "Clicked!";
+        change x = x + 10;
     }
-    return fib(n - 1) + fib(n - 2);
+    
+    fill(rgb(200, 100, 100));
+    circle(x, 150, 50);
+    
+    stroke(rgb(100, 200, 100), 5);
+    line(10, 250, 300, 250);
+    
+    text("Slider Value: " + val, 10, 280, "left");
+    change val = slider(10, 300);
+    
+    fill(rgb(100, 100, 255));
+    polygon(400, 100, new [new {"x": 0, "y": 0}, new {"x": 50, "y": 0}, new {"x": 25, "y": 50}]);
+    
+    // Grouped transformations - will be reset after end_group
+    group();
+    translate(500, 300);
+    rotate(0.1);
+    fill(rgb(255, 255, 0));
+    rect(0, 0, 100, 50);
+    end_group();
+    
+    // Draw a smiley face using sprite (8x8 pixels) - scaled up 10x
+    init yellow = rgb(255, 255, 0);
+    init black = rgb(0, 0, 0);
+    init faceData = new [
+        yellow, yellow, yellow, yellow, yellow, yellow, yellow, yellow,
+        yellow, yellow, black, yellow, yellow, black, yellow, yellow,
+        yellow, yellow, black, yellow, yellow, black, yellow, yellow,
+        yellow, yellow, yellow, yellow, yellow, yellow, yellow, yellow,
+        yellow, black, yellow, yellow, yellow, yellow, black, yellow,
+        yellow, yellow, black, yellow, yellow, black, yellow, yellow,
+        yellow, yellow, yellow, black, black, yellow, yellow, yellow,
+        yellow, yellow, yellow, yellow, yellow, yellow, yellow, yellow
+    ];
+    group();
+    translate(600, 50);
+    scale(10, 10);
+    sprite(0, 0, 8, 8, faceData);
+    end_group();
+    
+    end_window();
 }
-
-print("Calculating fib(5)...");
-debugger; // Break to inspect call stack
-init result = fib(5);
-print("Result: " + result);
 `);
 
     $('#repl-input').on('keydown', (e) => {
@@ -353,10 +584,11 @@ print("Result: " + result);
                 const end = err.location.end;
                 // appConsole.error expects location for clicking. Editor expects line/col for pure highlighting.
                 // We pass [start, end] offsets to console for the link.
-                appConsole.error(`Error at Line ${start.line}, Col ${start.column}: ${err.message}`, [start.offset, end.offset]);
+                appConsole.error(`Syntax Error at Line ${start.line}, Col ${start.column}: ${err.message}`, [start.offset, end.offset]);
                 editor.highlightError(start.line, start.column);
             } else {
-                appConsole.error(`Error: ${err.message}`);
+                appConsole.error(`Parse Error: ${err.message}`);
+                console.error(err)
             }
         }
     });
