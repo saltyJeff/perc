@@ -125,6 +125,10 @@ export interface member_store_op extends base_op {
     name: string;
 }
 
+export interface debugger_op extends base_op {
+    type: 'debugger';
+}
+
 export type opcode =
     | push_op
     | pop_op
@@ -150,4 +154,5 @@ export type opcode =
     | index_load_op
     | index_store_op
     | member_load_op
-    | member_store_op;
+    | member_store_op
+    | debugger_op;

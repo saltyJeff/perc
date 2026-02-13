@@ -195,13 +195,15 @@ export class perc_map extends perc_type {
         this.data = new Map();
     }
     get(key: perc_type): perc_type {
-        // Use string representation for key in Map for simplicity or a robust hashing
         const k = key.to_string();
         return this.data.get(k) || new perc_nil();
     }
     set(key: perc_type, value: perc_type): perc_type {
         this.data.set(key.to_string(), value);
         return value;
+    }
+    to_string(): string {
+        return "{" + Array.from(this.data.entries()).map(([k, v]) => `${k}: ${v.to_string()}`).join(", ") + "}";
     }
 }
 
@@ -213,5 +215,5 @@ export class perc_closure extends perc_type {
         this.addr = addr;
         this.captured = captured;
     }
-    to_string(): string { return `[function]`; }
+    to_string(): string { return `<function at ${this.addr}>`; }
 }

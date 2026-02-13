@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import peggy from 'peggy';
 import { VM } from './index';
+import { Compiler } from './compiler';
 import { perc_nil } from './perc_types';
 
 const grammar = fs.readFileSync('src/perc-grammar.pegjs', 'utf8');
@@ -99,5 +100,36 @@ describe('PerC Integration Tests', () => {
         `;
         const { printed } = run(code);
         expect(printed).toEqual(['Sum is large: 14', 'Map count: 50']);
+    });
+
+    it('should support custom foreign functions', () => {
+        const vm = new VM();
+        const results: number[] = [];
+        vm.register_foreign('save_result', (val) => {
+            results.push((val as any).buffer[0]);
+            return new perc_nil();
+        });
+
+        // Need to use compiler with knowledge of the foreign function
+        const compiler = new Compiler(['print', 'save_result']);
+        const grammar = fs.readFileSync('src/perc-grammar.pegjs', 'utf8');
+        const parser = peggy.generate(grammar);
+
+        const code = `
+            init x = 5
+            save_result(x * 2)
+        `;
+
+        const ast = parser.parse(code);
+        const opcodes = compiler.compile(ast);
+        vm.reset_state();
+        // Manually setting code since vm.execute uses its own compiler instance
+        (vm as any).code = opcodes;
+
+        const runner = vm.run();
+        let r = runner.next();
+        while (!r.done) r = runner.next();
+
+        expect(results).toEqual([10]);
     });
 });

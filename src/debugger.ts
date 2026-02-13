@@ -18,10 +18,6 @@ export class Debugger {
                 <h4>Variables</h4>
                 <div class="vars-content">None</div>
             </div>
-            <div class="debug-section" id="vm-state">
-                <h4>VM State</h4>
-                <div class="state-content">Idle</div>
-            </div>
         `;
     }
 

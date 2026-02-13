@@ -3,6 +3,11 @@ import { perc_number, perc_string, perc_bool, perc_nil } from "./perc_types.ts";
 
 export class Compiler {
     private opcodes: opcode[] = [];
+    private foreign_funcs: Set<string>;
+
+    constructor(foreign_funcs: string[] = ['print']) {
+        this.foreign_funcs = new Set(foreign_funcs);
+    }
 
     compile(ast: any): opcode[] {
         this.opcodes = [];
@@ -99,6 +104,10 @@ export class Compiler {
                 this.emit({ type: 'ret' }, node);
                 break;
 
+            case "DebuggerStatement":
+                this.emit({ type: 'debugger' }, node);
+                break;
+
             case "ExpressionStatement":
                 this.visit(node.expression);
                 this.emit({ type: 'pop' }, node);
@@ -116,10 +125,10 @@ export class Compiler {
                 break;
 
             case "CallExpression":
-                // Handle print special for now as call_foreign
-                if (node.callee.type === "Identifier" && node.callee.name === "print") {
+                // If callee is an identifier and is a known foreign function, emit call_foreign
+                if (node.callee.type === "Identifier" && this.foreign_funcs.has(node.callee.name)) {
                     node.arguments.forEach((arg: any) => this.visit(arg));
-                    this.emit({ type: 'call_foreign', name: 'print', nargs: node.arguments.length }, node);
+                    this.emit({ type: 'call_foreign', name: node.callee.name, nargs: node.arguments.length }, node);
                 } else {
                     node.arguments.forEach((arg: any) => this.visit(arg));
                     this.visit(node.callee);

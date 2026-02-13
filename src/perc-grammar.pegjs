@@ -37,6 +37,7 @@ Statement
     / ReturnStatement
     / BreakStatement
     / ContinueStatement
+    / DebuggerStatement
     / IfStatement
     / WhileStatement
     / ForInStatement
@@ -102,6 +103,9 @@ BreakStatement
 
 ContinueStatement
   = "continue" { return node("ContinueStatement", {}); }
+
+DebuggerStatement
+  = "debugger" { return node("DebuggerStatement", {}); }
 
 ExpressionStatement
   = expr:Expression {
@@ -336,6 +340,7 @@ Keyword
     / "return"
     / "break"
     / "continue"
+    / "debugger"
     / "new"
     / "true"
     / "false"

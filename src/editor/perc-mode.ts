@@ -8,7 +8,7 @@ export class PercHighlightRules extends TextHighlightRules {
     constructor() {
         super();
         const keywords = (
-            "init|change|function|if|then|else|while|for|in|return|break|continue|new|true|false|nil|not|is|and|or|clone"
+            "init|change|function|if|then|else|while|for|in|return|break|continue|debugger|new|true|false|nil|not|is|and|or|clone"
         );
 
         const buildinConstants = (
@@ -81,7 +81,7 @@ export class Mode extends TextMode {
     getKeywords() {
         return [
             "init", "change", "function", "if", "then", "else", "while", "for", "in",
-            "return", "break", "continue", "new", "true", "false", "nil", "not",
+            "return", "break", "continue", "debugger", "new", "true", "false", "nil", "not",
             "is", "and", "or", "clone"
         ];
     }

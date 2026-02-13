@@ -9,6 +9,7 @@ export interface VMEventMap {
     on_var_update: (name: string, value: perc_type) => void;
     on_stack_push: (value: perc_type) => void;
     on_node_eval: (range: [number, number]) => void;
+    on_debugger: () => void;
     on_error: (err: string) => void;
 }
 
@@ -267,6 +268,10 @@ export class VM {
                         const ms_val = this.pop();
                         const ms_obj = this.pop();
                         this.push(ms_obj.set(new perc_string(op.name), ms_val));
+                        break;
+                    case 'debugger':
+                        this.events.on_debugger?.();
+                        yield; // Pause
                         break;
                 }
             } catch (e: any) {

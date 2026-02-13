@@ -19,10 +19,68 @@ $(() => {
     const vm = new VM();
 
     // Wiring VM to Debugger
+    let currentRunner: Generator<void, void, void> | null = null;
+    let isRunning = false;
+    let isPaused = false;
+    let executionInterval: any = null;
+
+    const stopVM = () => {
+        isRunning = false;
+        isPaused = false;
+        if (executionInterval) clearInterval(executionInterval);
+        executionInterval = null;
+        currentRunner = null;
+        $('#btn-stop').hide();
+        $('#btn-step').hide();
+        $('#btn-run').show();
+        debug.setStatus('Idle');
+    };
+
+    const runVM = async () => {
+        if (!currentRunner) return;
+
+        isRunning = true;
+        isPaused = false;
+        $('#btn-run').hide();
+        $('#btn-stop').show();
+        $('#btn-step').hide();
+        debug.setStatus('Running...');
+
+        executionInterval = setInterval(() => {
+            if (!isRunning || isPaused) {
+                clearInterval(executionInterval);
+                return;
+            }
+
+            // Run a batch of instructions
+            const BATCH_SIZE = 100;
+            for (let i = 0; i < BATCH_SIZE; i++) {
+                const result = currentRunner!.next();
+                if (result.done) {
+                    stopVM();
+                    return;
+                }
+                if (isPaused) return; // Hit a breakpoint during batch
+            }
+        }, 0);
+    };
+
+    const stepVM = () => {
+        if (!currentRunner) return;
+        isPaused = true;
+        const result = currentRunner.next();
+        if (result.done) {
+            stopVM();
+        } else {
+            debug.setStatus('Paused (Breakpoint)');
+        }
+    };
+
     vm.set_events({
         on_error: (msg) => {
             logToConsole(`Error: ${msg}`, 'error');
             debug.setStatus('Error');
+            stopVM();
         },
         on_var_update: () => {
             debug.updateVariables(vm.get_current_scope_values());
@@ -34,11 +92,16 @@ $(() => {
         on_frame_pop: () => {
             debug.updateCallStack(vm.get_call_stack_names());
             debug.updateVariables(vm.get_current_scope_values());
+        },
+        on_debugger: () => {
+            isPaused = true;
+            $('#btn-step').show();
+            debug.setStatus('Paused (Debugger)');
         }
     });
 
     vm.register_foreign('print', (...args) => {
-        const msg = args.map(a => a.to_string()).join(' ');
+        const msg = args.map(a => (a as any).to_string()).join(' ');
         logToConsole(msg, 'log');
         return new perc_nil();
     });
@@ -55,14 +118,18 @@ init y = 20;
 
 print(x + y);
 
+debugger;
+
 function test() {
     return x * y;
 }
+
+print(test());
 `);
 
     // Console / REPL Logic
     const $consoleOut = $('#console-output');
-    const logToConsole = (msg: string, type: 'log' | 'error' | 'input' = 'log') => {
+    function logToConsole(msg: string, type: 'log' | 'error' | 'input' = 'log') {
         const $entry = $('<div>').addClass('console-entry').addClass(type).text(msg);
         $consoleOut.append($entry);
         $consoleOut.scrollTop($consoleOut[0].scrollHeight);
@@ -79,8 +146,8 @@ function test() {
             try {
                 // For REPL, we want to maintain the current VM state, 
                 // but execute new code.
-                // We'll use a trick: execute it, then step it to completion.
                 vm.execute(input, parser);
+                currentRunner = vm.run();
                 runVM();
             } catch (err: any) {
                 // Errors already logged by on_error event
@@ -88,20 +155,47 @@ function test() {
         }
     });
 
-    const runVM = async () => {
-        debug.setStatus('Running...');
-        const runner = vm.run();
-        let result = runner.next();
-        while (!result.done) {
-            // In a real app we might want to yield to the main thread
-            // but for simple execution we can just loop.
-            result = runner.next();
-        }
-        debug.setStatus('Idle');
-    };
-
     $('#console-clear').on('click', () => {
         $consoleOut.empty();
+    });
+
+    // --- Execution Control ---
+
+    $('#btn-run').on('click', () => {
+        if (isPaused) {
+            runVM();
+            return;
+        }
+
+        logToConsole("Run: Starting execution...", 'log');
+        const code = editor.getValue();
+        try {
+            vm.execute(code, parser);
+            currentRunner = vm.run();
+            runVM();
+        } catch (err) {
+            // Errors handled in events
+        }
+    });
+
+    $('#btn-stop').on('click', () => {
+        logToConsole("Stop: Execution halted.", 'log');
+        stopVM();
+    });
+
+    $('#btn-step').on('click', () => {
+        stepVM();
+    });
+
+    $('#btn-build').on('click', () => {
+        logToConsole("Build: Compiling...", 'log');
+        const code = editor.getValue();
+        try {
+            parser.parse(code);
+            logToConsole("Build: No errors found.", 'log');
+        } catch (e: any) {
+            logToConsole(`Build Error: ${e.message}`, 'error');
+        }
     });
 
     // --- Resizing Logic ---
@@ -126,24 +220,48 @@ function test() {
         if (isDraggingV) {
             const containerWidth = $('#top-container').width() || 0;
             const newDebugWidth = containerWidth - e.clientX;
-            // Minimal constraints
-            if (newDebugWidth > 50 && newDebugWidth < containerWidth - 50) {
-                $('#debugger-pane').css('width', newDebugWidth + 'px');
-                editor.resize();
+            const $debugger = $('#debugger-pane');
+
+            // Snapping logic
+            if (newDebugWidth < 60) {
+                if (!$debugger.hasClass('collapsed')) {
+                    $debugger.addClass('collapsed').css('width', '32px');
+                    updatePaneButtons($debugger);
+                }
+            } else {
+                if ($debugger.hasClass('collapsed')) {
+                    $debugger.removeClass('collapsed');
+                    updatePaneButtons($debugger);
+                }
+                if (newDebugWidth < containerWidth - 100) {
+                    $debugger.css('width', newDebugWidth + 'px');
+                }
             }
+            editor.resize();
         }
 
         if (isDraggingH) {
             const containerHeight = $('#vertical-container').height() || 0;
-            // Calculate height from bottom
-            // e.clientY is position from top. 
-            // The console pane is at the bottom.
-            const newConsoleHeight = containerHeight - (e.clientY - $('#menubar').height()!);
+            const menubarHeight = $('#menubar').height() || 0;
+            const newConsoleHeight = containerHeight - (e.clientY - menubarHeight);
+            const $console = $('#console-pane');
 
-            if (newConsoleHeight > 30 && newConsoleHeight < containerHeight - 50) {
-                $('#console-pane').css('height', newConsoleHeight + 'px');
-                editor.resize();
+            // Snapping logic
+            if (newConsoleHeight < 50) {
+                if (!$console.hasClass('collapsed')) {
+                    $console.addClass('collapsed').css('height', '32px');
+                    updatePaneButtons($console);
+                }
+            } else {
+                if ($console.hasClass('collapsed')) {
+                    $console.removeClass('collapsed');
+                    updatePaneButtons($console);
+                }
+                if (newConsoleHeight < containerHeight - 100) {
+                    $console.css('height', newConsoleHeight + 'px');
+                }
             }
+            editor.resize();
         }
     });
 
@@ -152,7 +270,7 @@ function test() {
             isDraggingV = false;
             isDraggingH = false;
             $('body').css('cursor', 'default');
-            editor.resize(); // Ensure editor redraws correctly
+            editor.resize();
         }
     });
 
@@ -160,17 +278,11 @@ function test() {
 
     // Zoom Logic
     const setZoom = (target: string, size: number) => {
-        // Clamp 4px (approx 25%) to 42px (300%)
         size = Math.max(4, Math.min(42, size));
-
-        // Update Slider
         $(`input.zoom-slider[data-target="${target}"]`).val(size);
-
-        // Update Reset Text (14px = 100%)
         const percentage = Math.round((size / 14) * 100);
         $(`button.zoom-reset[data-target="${target}"]`).text(percentage + '%');
 
-        // Update Content
         if (target === 'editor') {
             editor.setFontSize(size);
         } else if (target === 'debugger') {
@@ -180,14 +292,12 @@ function test() {
         }
     };
 
-    // Zoom Sliders
     $('input.zoom-slider').on('input', function () {
         const target = $(this).data('target');
         const size = parseInt($(this).val() as string);
         setZoom(target, size);
     });
 
-    // Zoom Buttons
     $('button.zoom-btn').on('click', function () {
         const target = $(this).data('target');
         const isIn = $(this).hasClass('zoom-in');
@@ -195,24 +305,20 @@ function test() {
         setZoom(target, currentVal + (isIn ? 1 : -1));
     });
 
-    // Zoom Reset
     $('button.zoom-reset').on('click', function () {
         const target = $(this).data('target');
-        setZoom(target, 14); // Default
+        setZoom(target, 14);
     });
 
-    // Traffic Lights (Minimize/Restore/Maximize)
     const updatePaneButtons = (pane: JQuery) => {
         const isMax = pane.hasClass('maximized');
         const isMin = pane.hasClass('collapsed');
         const isNormal = !isMax && !isMin;
-
         pane.find('.btn-min').prop('disabled', isMin);
         pane.find('.btn-restore').prop('disabled', isNormal);
         pane.find('.btn-max').prop('disabled', isMax);
     };
 
-    // Initialize button states
     $('.pane').each(function () {
         updatePaneButtons($(this));
     });
@@ -221,14 +327,11 @@ function test() {
         const action = $(this).data('action');
         const pane = $(this).closest('.pane');
         const container = pane.parent();
-
         let siblings = container.children('.pane').not(pane);
         if (container.attr('id') === 'vertical-container') {
             siblings = siblings.add(container.children('#top-container'));
         }
         const splitters = container.children('.splitter');
-
-        // Reset state
         pane.removeClass('maximized collapsed');
         siblings.removeClass('collapsed maximized');
         splitters.show();
@@ -239,47 +342,18 @@ function test() {
             splitters.hide();
         } else if (action === 'minimize') {
             pane.addClass('collapsed');
-        } else {
-            // Restore - already reset above
         }
-
-        // Update buttons for all affected panes
         container.find('.pane').each(function () {
             updatePaneButtons($(this));
         });
-
         editor.resize();
-    });
-
-
-    $('#btn-run').on('click', () => {
-        logToConsole("Run: Starting execution...", 'log');
-        const code = editor.getValue();
-        try {
-            vm.execute(code, parser);
-            runVM();
-        } catch (err) {
-            // Errors handled in events
-        }
-    });
-
-    $('#btn-build').on('click', () => {
-        logToConsole("Build: Compiling...", 'log');
-        // Peggy build integration pending
-    });
-
-    $('#btn-stop').on('click', () => {
-        logToConsole("Stop: Execution halted.", 'log');
     });
 
     // Editor Options
     let isDark = true;
     $('#btn-theme').on('click', function () {
         isDark = !isDark;
-
-        // Toggle Body Class
         $('body').toggleClass('dark-theme', isDark).toggleClass('light-theme', !isDark);
-
         editor.setTheme(isDark ? 'dark' : 'light');
         $(this).text(`Theme: ${isDark ? 'Dark' : 'Light'}`);
     });
@@ -291,6 +365,5 @@ function test() {
         $(this).text(`Wrap: ${isWrap ? 'On' : 'Off'}`);
     });
 
-    // Initial log
     logToConsole("Welcome to PerC IDE v0.1", 'log');
 });
