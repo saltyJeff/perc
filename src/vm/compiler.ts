@@ -8,7 +8,7 @@ export class Compiler {
     constructor(foreign_funcs: string[] = [
         'print', 'println', 'input',
         'i8', 'u8', 'i16', 'u16', 'i32', 'u32', 'f32', 'f64', 'int', 'float',
-        'rgb', 'hsl', 'text_color',
+        'rgb', 'rgba', 'hsl', 'hsla', 'text_color',
         'window', 'end_window',
         'button', 'slider', 'textbox', 'checkbox', 'radio',
         'rect', 'circle', 'line', 'polygon', 'text',

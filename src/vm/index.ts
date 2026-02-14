@@ -1,7 +1,8 @@
 import type { opcode } from "./opcodes.ts";
-import { perc_type, perc_bool, perc_nil, perc_err, perc_closure, perc_number, perc_string, perc_list, perc_map } from "./perc_types.ts";
+import { perc_type, perc_bool, perc_err, perc_closure, perc_number, perc_string, perc_list, perc_map } from "./perc_types.ts";
 import type { perc_iterator } from "./perc_types.ts";
 import { Compiler } from "./compiler.ts";
+import { standardBuiltins } from "./builtins.ts";
 
 export interface VMEventMap {
     on_frame_push: (frame: Frame) => void;
@@ -85,87 +86,14 @@ export class VM {
     constructor(code: opcode[] = []) {
         this.code = code;
         this.reset_state();
-        this.register_defaults();
+        this.register_builtins(standardBuiltins);
     }
 
-    private register_defaults() {
-        const types = ['i8', 'u8', 'i16', 'u16', 'i32', 'u32', 'f32', 'f64'] as const;
-        for (const t of types) {
-            this.register_foreign(t, (arg: perc_type) => {
-                if (arg instanceof perc_number) return new perc_number(arg.buffer[0], t);
-                // Try parsing string
-                if (arg instanceof perc_string) {
-                    const n = parseFloat(arg.value);
-                    if (!isNaN(n)) return new perc_number(n, t);
-                }
-                return new perc_err(`Cannot cast ${arg.to_string()} to ${t}`);
-            });
-        }
-        // Aliases
-        this.register_foreign('int', this.foreign_funcs.get('i32')!);
-        this.register_foreign('float', this.foreign_funcs.get('f64')!);
 
-        // Input
-        this.register_foreign('input', (prompt_str: perc_type) => {
-            const p = prompt_str instanceof perc_string ? prompt_str.value : prompt_str.to_string();
-            this.events.on_input_request?.(p);
-            this.is_waiting_for_input = true;
-            return new perc_nil(); // Placeholder, will be replaced by resume_with_input
-        });
 
-        // Color functions
-        this.register_foreign('rgb', (r: perc_type, g: perc_type, b: perc_type) => {
-            const m = new perc_map();
-            m.set(new perc_string('r'), r);
-            m.set(new perc_string('g'), g);
-            m.set(new perc_string('b'), b);
-            return m;
-        });
-
-        this.register_foreign('hsl', (h: perc_type, s: perc_type, l: perc_type) => {
-            // HSL to RGB conversion
-            const hv = h instanceof perc_number ? h.buffer[0] : 0;
-            const sv = s instanceof perc_number ? s.buffer[0] / 100 : 0;
-            const lv = l instanceof perc_number ? l.buffer[0] / 100 : 0;
-
-            const k = (n: number) => (n + hv / 30) % 12;
-            const a = sv * Math.min(lv, 1 - lv);
-            const f = (n: number) => lv - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
-
-            const r = Math.round(f(0) * 255);
-            const g = Math.round(f(8) * 255);
-            const b = Math.round(f(4) * 255);
-
-            const m = new perc_map();
-            m.set(new perc_string('r'), new perc_number(r, 'u8'));
-            m.set(new perc_string('g'), new perc_number(g, 'u8'));
-            m.set(new perc_string('b'), new perc_number(b, 'u8'));
-            return m;
-        });
-
-        // Text color function - this will be overridden by the main app to connect to the console
-        this.register_foreign('text_color', (color: perc_type) => {
-            return new perc_nil(); // Default no-op, will be overridden
-        });
-
-        // GUI Functions placeholders
-        const guiFuncs = [
-            'window', 'end_window',
-            'button', 'input', 'slider', 'checkbox', 'radio',
-            'circle', 'rect', 'line', 'polygon', 'text',
-            'fill', 'stroke', 'scale', 'translate', 'rotate',
-            'group', 'end_group',
-            'image', 'sprite'
-        ];
-        for (const func of guiFuncs) {
-            this.register_foreign(func, (...args: perc_type[]) => {
-                if (func === 'button') return new perc_bool(false);
-                if (func === 'input') return new perc_string("");
-                if (func === 'slider') return new perc_number(0);
-                if (func === 'checkbox') return new perc_bool(false);
-                if (func === 'radio') return new perc_bool(false);
-                return new perc_nil();
-            });
+    public register_builtins(funcs: Record<string, (...args: perc_type[]) => perc_type | perc_type[]>) {
+        for (const [name, func] of Object.entries(funcs)) {
+            this.register_foreign(name, func);
         }
     }
 
@@ -176,6 +104,7 @@ export class VM {
         this.iterators = [];
         this.is_waiting_for_input = false;
         this.in_debug_mode = false;
+        // Don't clear foreign_funcs here as they are registered once
         const global_scope = new Scope();
         this.current_frame = new Frame(global_scope, -1, 0, "global");
         // Notify debugger of the initial global frame so it can be populated
@@ -246,8 +175,12 @@ export class VM {
         this.events = events;
     }
 
-    register_foreign(name: string, func: (...args: perc_type[]) => perc_type) {
+    register_foreign(name: string, func: (...args: perc_type[]) => perc_type | perc_type[]) {
         this.foreign_funcs.set(name, func);
+    }
+
+    public get_foreign_funcs(): Map<string, (...args: perc_type[]) => perc_type | perc_type[]> {
+        return this.foreign_funcs;
     }
 
     *run(): Generator<void, void, void> {
@@ -468,7 +401,8 @@ export class VM {
                         for (let i = 0; i < op.nargs; i++) for_args.push(this.pop());
                         const foreign = this.foreign_funcs.get(op.name);
                         if (!foreign) throw new Error(`Foreign function not found: ${op.name}`);
-                        this.push(foreign(...for_args.reverse())); // args were pushed in order, pop in reverse
+                        const res = foreign(...for_args.reverse());
+                        this.push(res);
                         break;
                     case 'new_array':
                         const arr_els: perc_type[] = [];
@@ -600,20 +534,6 @@ export class VM {
         if (this.in_debug_mode) {
             return curr_start !== last_start || curr_end !== last_end;
         }
-        // In non-debug mode, we don't yield on every instruction to be faster, 
-        // BUT the outer loop (index.ts) expects BATCH_SIZE yields.
-        // If we don't yield, we might freeze the UI.
-        // Actually, we SHOULD yield every instruction or every N instructions to let the event loop breathe,
-        // but since index.ts uses a batch loop (run 100 times), yielding here just returns to that loop.
-        // So yielding every instruction is fine and safest.
-        // Wait, the User Request says: "the VM should keep executing bytecode until the src_start and/or src_end changes"
-        // This is specifically for "delta updating the generator" context (step 3/step 4).
-        // If in Run mode (not debug), we can probably just yield normally (every instruction) or for performance optimization
-        // we could yield less often. 
-        // NOTE: If we yield ONLY on src change in Run mode, `index.ts` might run fewer "visual steps" per frame.
-        // Let's stick to: Yield if src changes OR we just want to yield to be safe.
-        // However, the prompt specifically asked for the "VM should keep executing... until ... changes" behavior.
-        // I will apply this behavior universally as it makes "step" consistent.
         return curr_start !== last_start || curr_end !== last_end;
     }
 
@@ -654,7 +574,7 @@ export class VM {
     private return_error(err: perc_err) {
         if (this.call_stack.length === 0) {
             this.ip = -1; // Halt
-            console.error(e.message);
+            console.error(err.value);
             this.events.on_error?.(err.value, err.location); // Report unhandled error
             return;
         }

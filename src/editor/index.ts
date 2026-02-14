@@ -68,6 +68,36 @@ export class Editor {
         ];
     }
 
+    public setBuiltins(builtins: string[]) {
+        // Update syntax highlighting
+        this.editor.session.setMode(new PercMode(builtins) as any);
+
+        // Update autocompletion
+        const staticWordCompleter = {
+            getCompletions: (_editor: ace.Ace.Editor, _session: ace.Ace.EditSession, _pos: ace.Ace.Point, _prefix: string, callback: any) => {
+                const keywords = [
+                    "init", "change", "function", "if", "then", "else", "while", "for", "in",
+                    "return", "break", "continue", "new", "true", "false", "nil", "not",
+                    "is", "and", "or", "clone", "typeof"
+                ];
+
+                const completions = [
+                    ...keywords.map(word => ({ caption: word, value: word, meta: "keyword" })),
+                    ...builtins.map(word => ({ caption: word, value: word, meta: "builtin" }))
+                ];
+
+                callback(null, completions);
+            }
+        };
+
+        const langTools = (ace as any).require("ace/ext/language_tools");
+        this.editor.completers = [
+            langTools.textCompleter,
+            langTools.keyWordCompleter,
+            staticWordCompleter
+        ];
+    }
+
     public setValue(content: string) {
         this.editor.setValue(content, -1); // -1 moves cursor to start
     }

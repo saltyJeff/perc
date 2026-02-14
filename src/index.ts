@@ -4,7 +4,7 @@ import { Debugger } from './debugger/index';
 import { Console } from './console/index';
 import { VM } from './vm/index';
 import { GUIManager } from './gui_window/manager';
-import { perc_type, perc_nil, perc_string, perc_number, perc_map, perc_bool, perc_list } from './vm/perc_types';
+import { perc_string } from './vm/perc_types';
 // @ts-ignore
 import parser from './perc-grammar.pegjs';
 import './style.css';
@@ -12,6 +12,9 @@ import './console/console.css';
 import './editor/editor.css';
 import './debugger/debugger.css';
 import './ui/perc_value.css';
+import { standardBuiltins } from './vm/builtins';
+import { createConsoleBuiltins } from './console/builtins';
+import { createGuiBuiltins } from './gui_window/builtins';
 
 console.log('PerC IDE initializing...');
 
@@ -208,247 +211,14 @@ $(() => {
         editor.highlightAndScroll(loc, 'error');
     };
 
-    vm.register_foreign('print', (...args) => {
-        const msg = args.map(a => (a as any).to_string()).join(' ');
-        appConsole.print(msg);
-        return new perc_nil();
-    });
+    // Register Builtins
+    vm.register_builtins(standardBuiltins);
+    vm.register_builtins(createConsoleBuiltins(appConsole));
+    vm.register_builtins(createGuiBuiltins(gui));
 
-    vm.register_foreign('println', (...args) => {
-        const msg = args.map(a => (a as any).to_string()).join(' ');
-        appConsole.println(msg);
-        return new perc_nil();
-    });
-
-    vm.register_foreign('text_color', (color: perc_type) => {
-        if (!(color instanceof perc_map)) {
-            throw new Error(`text_color: argument must be a color map (from rgb() or hsl()), got ${color.type}`);
-        }
-        const r = color.get(new perc_string('r'));
-        const g = color.get(new perc_string('g'));
-        const b = color.get(new perc_string('b'));
-
-        if (!(r instanceof perc_number) || !(g instanceof perc_number) || !(b instanceof perc_number)) {
-            throw new Error("text_color: invalid color map components");
-        }
-
-        const rVal = Math.max(0, Math.min(255, Math.floor(r.buffer[0])));
-        const gVal = Math.max(0, Math.min(255, Math.floor(g.buffer[0])));
-        const bVal = Math.max(0, Math.min(255, Math.floor(b.buffer[0])));
-
-        appConsole.setTextColor(`rgb(${rVal}, ${gVal}, ${bVal})`);
-        return new perc_nil();
-    });
-
-    // --- GUI Functions ---
-    vm.register_foreign('window', () => {
-        gui.openWindow();
-        gui.clearCommands();
-        return new perc_nil();
-    });
-
-    vm.register_foreign('end_window', () => {
-        gui.flushCommands();
-        return new perc_nil();
-    });
-
-    vm.register_foreign('button', (text, x, y) => {
-        const id = `btn_${text.to_string()}_${x.to_string()}_${y.to_string()}`;
-        gui.pushCommand('button', { id, text: text.to_string(), x: (x as any).buffer[0], y: (y as any).buffer[0] });
-        return new perc_bool(gui.isClicked(id));
-    });
-
-    vm.register_foreign('fill', (color) => {
-        if (color instanceof perc_map) {
-            const r = (color.get(new perc_string('r')) as any).buffer[0];
-            const g = (color.get(new perc_string('g')) as any).buffer[0];
-            const b = (color.get(new perc_string('b')) as any).buffer[0];
-            gui.pushCommand('fill', { r, g, b });
-        }
-        return new perc_nil();
-    });
-
-    vm.register_foreign('rect', (x, y, w, h) => {
-        gui.pushCommand('rect', {
-            x: (x as any).buffer[0],
-            y: (y as any).buffer[0],
-            w: (w as any).buffer[0],
-            h: (h as any).buffer[0]
-        });
-        return new perc_nil();
-    });
-
-    vm.register_foreign('circle', (x, y, r) => {
-        gui.pushCommand('circle', {
-            x: (x as any).buffer[0],
-            y: (y as any).buffer[0],
-            r: (r as any).buffer[0]
-        });
-        return new perc_nil();
-    });
-
-    vm.register_foreign('line', (x1, y1, x2, y2) => {
-        gui.pushCommand('line', {
-            x1: (x1 as any).buffer[0],
-            y1: (y1 as any).buffer[0],
-            x2: (x2 as any).buffer[0],
-            y2: (y2 as any).buffer[0]
-        });
-        return new perc_nil();
-    });
-
-    vm.register_foreign('text', (text, x, y, align) => {
-        const alignment = align instanceof perc_string ? align.to_string() : 'left';
-        gui.pushCommand('text', {
-            text: text.to_string(),
-            x: (x as any).buffer[0],
-            y: (y as any).buffer[0],
-            align: alignment
-        });
-        return new perc_nil();
-    });
-
-    vm.register_foreign('stroke', (color, width) => {
-        if (color instanceof perc_map) {
-            const r = (color.get(new perc_string('r')) as any).buffer[0];
-            const g = (color.get(new perc_string('g')) as any).buffer[0];
-            const b = (color.get(new perc_string('b')) as any).buffer[0];
-            gui.pushCommand('stroke', { r, g, b, width: width instanceof perc_number ? width.buffer[0] : 1 });
-        }
-        return new perc_nil();
-    });
-
-    vm.register_foreign('slider', (x, y) => {
-        const id = `slider_${(x as any).buffer[0]}_${(y as any).buffer[0]}`;
-        const currentVal = gui.getInput(id + '_val') || 0;
-        gui.pushCommand('slider', { id, x: (x as any).buffer[0], y: (y as any).buffer[0], val: currentVal });
-        return new perc_number(currentVal);
-    });
-
-    vm.register_foreign('translate', (x, y) => {
-        gui.pushCommand('translate', { x: (x as any).buffer[0], y: (y as any).buffer[0] });
-        return new perc_nil();
-    });
-
-    vm.register_foreign('scale', (x, y) => {
-        gui.pushCommand('scale', { x: (x as any).buffer[0], y: (y as any).buffer[0] });
-        return new perc_nil();
-    });
-
-    vm.register_foreign('rotate', (angle) => {
-        gui.pushCommand('rotate', { angle: (angle as any).buffer[0] });
-        return new perc_nil();
-    });
-
-    vm.register_foreign('group', () => {
-        gui.pushCommand('save', {});
-        return new perc_nil();
-    });
-
-    vm.register_foreign('end_group', () => {
-        gui.pushCommand('restore', {});
-        return new perc_nil();
-    });
-
-    vm.register_foreign('image', (x, y, w, h, url) => {
-        gui.pushCommand('image', {
-            x: (x as any).buffer[0],
-            y: (y as any).buffer[0],
-            w: (w as any).buffer[0],
-            h: (h as any).buffer[0],
-            url: url.to_string()
-        });
-        return new perc_nil();
-    });
-
-    vm.register_foreign('sprite', (x, y, w, h, data) => {
-        const pixels: any[] = [];
-        if (data instanceof perc_list) {
-            for (const pixel of data.elements) {
-                if (pixel instanceof perc_map) {
-                    pixels.push({
-                        r: (pixel.get(new perc_string('r')) as any).buffer[0],
-                        g: (pixel.get(new perc_string('g')) as any).buffer[0],
-                        b: (pixel.get(new perc_string('b')) as any).buffer[0]
-                    });
-                }
-            }
-        }
-        gui.pushCommand('sprite', {
-            x: (x as any).buffer[0],
-            y: (y as any).buffer[0],
-            w: (w as any).buffer[0],
-            h: (h as any).buffer[0],
-            data: pixels
-        });
-        return new perc_nil();
-    });
-
-    vm.register_foreign('polygon', (x, y, points) => {
-        const pts: { x: number, y: number }[] = [];
-        if (points instanceof perc_list) {
-            for (const p of points.elements) {
-                if (p instanceof perc_map) {
-                    pts.push({
-                        x: (p.get(new perc_string('x')) as any).buffer[0],
-                        y: (p.get(new perc_string('y')) as any).buffer[0]
-                    });
-                }
-            }
-        }
-        gui.pushCommand('polygon', { x: (x as any).buffer[0], y: (y as any).buffer[0], points: pts });
-        return new perc_nil();
-    });
-
-    vm.register_foreign('update_image', (x, y, w, h, url) => {
-        gui.pushCommand('update_image', {
-            x: (x as any).buffer[0],
-            y: (y as any).buffer[0],
-            w: (w as any).buffer[0],
-            h: (h as any).buffer[0],
-            url: url.to_string()
-        });
-        return new perc_nil();
-    });
-
-    vm.register_foreign('input', (x, y) => {
-        const id = `input_${(x as any).buffer[0]}_${(y as any).buffer[0]}`;
-        const val = gui.getInput(id + '_val') || "";
-        gui.pushCommand('input', { id, x: (x as any).buffer[0], y: (y as any).buffer[0] });
-        return new perc_string(val);
-    });
-
-    vm.register_foreign('checkbox', (x, y) => {
-        const id = `chk_${(x as any).buffer[0]}_${(y as any).buffer[0]}`;
-        const val = gui.getInput(id + '_val') || false;
-        gui.pushCommand('checkbox', { id, x: (x as any).buffer[0], y: (y as any).buffer[0], val });
-        return new perc_bool(val);
-    });
-
-    vm.register_foreign('radio', (x, y) => {
-        const id = `rad_${(x as any).buffer[0]}_${(y as any).buffer[0]}`;
-        const val = gui.getInput(id + '_val') || false;
-        gui.pushCommand('radio', { id, x: (x as any).buffer[0], y: (y as any).buffer[0], val });
-        return new perc_bool(val);
-    });
-
-    vm.register_foreign('sprite', (x, y, w, h, data) => {
-        // data is a list of color maps
-        const pixels: any[] = [];
-        if (data instanceof perc_list) {
-            for (const p of data.elements) {
-                if (p instanceof perc_map) {
-                    pixels.push({
-                        r: (p.get(new perc_string('r')) as any).buffer[0],
-                        g: (p.get(new perc_string('g')) as any).buffer[0],
-                        b: (p.get(new perc_string('b')) as any).buffer[0]
-                    });
-                }
-            }
-        }
-        gui.pushCommand('sprite', { x: (x as any).buffer[0], y: (y as any).buffer[0], w: (w as any).buffer[0], h: (h as any).buffer[0], data: pixels });
-        return new perc_nil();
-    });
+    // Update Editor with registered builtins
+    const allBuiltins = Array.from(vm.get_foreign_funcs().keys()) as string[];
+    editor.setBuiltins(allBuiltins);
 
     // Expose for debugging/future integration
     (window as any).editor = editor;
@@ -515,6 +285,34 @@ while(true) then {
     scale(10, 10);
     sprite(0, 0, 8, 8, faceData);
     end_group();
+    
+    // Textbox widget
+    fill(rgb(0, 0, 0));
+    text("Enter text:", 10, 350, "left");
+    init userText = textbox(10, 370);
+    text("You typed: " + userText, 10, 410, "left");
+    
+    // Checkbox widget (green check on black border)
+    fill(rgb(0, 255, 0));
+    stroke(rgb(0, 0, 0));
+    init isChecked = checkbox(10, 430);
+    text("Checkbox: " + isChecked, 40, 440, "left");
+    
+    // Radio button group "Colors"
+    fill(rgb(128, 0, 128));
+    stroke(rgb(0, 0, 255));
+    init isRed = radio("Colors", 10, 460);
+    text("Red: " + isRed, 40, 470, "left");
+    
+    init isBlue = radio("Colors", 30, 460);
+    text("Blue: " + isBlue, 40, 500, "left");
+    
+    // Transparency demonstration (drawing blue on top of red)
+    fill(rgba(0, 0, 255, 0.5));
+    rect(400, 400, 100, 100);
+    
+    fill(rgba(255, 0, 0, 0.5));
+    rect(350, 350, 100, 100);
     
     end_window();
 }

@@ -31,7 +31,6 @@ describe('PerC Virtual Machine', () => {
 
         return { lastStackVal, printed, steps, done: result.done };
     };
-
     it('should perform basic arithmetic (10 + 20)', () => {
         const code: opcode[] = [
             { type: 'push', imm: new perc_number(10), src_start: 0, src_end: 0 },
@@ -45,14 +44,14 @@ describe('PerC Virtual Machine', () => {
     it('should calculate Fibonacci(6) recursively', () => {
         const fib_code: opcode[] = [
             /* 0 */ { type: 'make_closure', addr: 6, captured: [], name: 'fib', src_start: 0, src_end: 0 },
-            /* 1 */ { type: 'init', name: 'fib', src_start: 0, src_end: 0 },
+            /* 1 */ { type: 'init', name: 'fib', catch: false, src_start: 0, src_end: 0 },
             /* 2 */ { type: 'push', imm: new perc_number(6), src_start: 0, src_end: 0 },
             /* 3 */ { type: 'load', name: 'fib', src_start: 0, src_end: 0 },
             /* 4 */ { type: 'call', nargs: 1, src_start: 0, src_end: 0 },
             /* 5 */ { type: 'jump', addr: 99, src_start: 0, src_end: 0 },
 
             // Closure body (addr 6)
-            /* 6 */ { type: 'init', name: 'n', src_start: 0, src_end: 0 },
+            /* 6 */ { type: 'init', name: 'n', catch: false, src_start: 0, src_end: 0 },
             /* 7 */ { type: 'load', name: 'n', src_start: 0, src_end: 0 },
             /* 8 */ { type: 'push', imm: new perc_number(1), src_start: 0, src_end: 0 },
             /* 9 */ { type: 'binary_op', op: '<=', src_start: 0, src_end: 0 },
@@ -85,18 +84,18 @@ describe('PerC Virtual Machine', () => {
             /* 1 */ { type: 'push', imm: new perc_number(2), src_start: 0, src_end: 0 },
             /* 2 */ { type: 'push', imm: new perc_number(1), src_start: 0, src_end: 0 },
             /* 3 */ { type: 'new_array', size: 3, src_start: 0, src_end: 0 },
-            /* 4 */ { type: 'init', name: 'list', src_start: 0, src_end: 0 },
+            /* 4 */ { type: 'init', name: 'list', catch: false, src_start: 0, src_end: 0 },
             /* 5 */ { type: 'push', imm: new perc_number(0), src_start: 0, src_end: 0 },
-            /* 6 */ { type: 'init', name: 'sum', src_start: 0, src_end: 0 },
+            /* 6 */ { type: 'init', name: 'sum', catch: false, src_start: 0, src_end: 0 },
             /* 7 */ { type: 'load', name: 'list', src_start: 0, src_end: 0 },
             /* 8 */ { type: 'get_iter', src_start: 0, src_end: 0 },
             /* 9 */ { type: 'iter_next', src_start: 0, src_end: 0 },
             /* 10*/ { type: 'jump_if_false', addr: 18, src_start: 0, src_end: 0 },
-            /* 11*/ { type: 'init', name: 'x', src_start: 0, src_end: 0 },
+            /* 11*/ { type: 'init', name: 'x', catch: false, src_start: 0, src_end: 0 },
             /* 12*/ { type: 'load', name: 'sum', src_start: 0, src_end: 0 },
             /* 13*/ { type: 'load', name: 'x', src_start: 0, src_end: 0 },
             /* 14*/ { type: 'binary_op', op: '+', src_start: 0, src_end: 0 },
-            /* 15*/ { type: 'store', name: 'sum', src_start: 0, src_end: 0 },
+            /* 15*/ { type: 'store', name: 'sum', catch: false, src_start: 0, src_end: 0 },
             /* 16*/ { type: 'jump', addr: 9, src_start: 0, src_end: 0 },
             /* 17*/ { type: 'jump', addr: 18, src_start: 0, src_end: 0 },
             /* 18*/ { type: 'load', name: 'sum', src_start: 0, src_end: 0 },
@@ -109,7 +108,7 @@ describe('PerC Virtual Machine', () => {
             /* 25*/ { type: 'push', imm: new perc_string("Small"), src_start: 0, src_end: 0 },
             /* 26*/ { type: 'call_foreign', name: 'print', nargs: 1, src_start: 0, src_end: 0 },
             /* 27*/ { type: 'make_closure', addr: 32, captured: ['sum'], name: 'getSumClosure', src_start: 0, src_end: 0 },
-            /* 28*/ { type: 'init', name: 'getSumClosure', src_start: 0, src_end: 0 },
+            /* 28*/ { type: 'init', name: 'getSumClosure', catch: false, src_start: 0, src_end: 0 },
             /* 29*/ { type: 'load', name: 'getSumClosure', src_start: 0, src_end: 0 },
             /* 30*/ { type: 'call', nargs: 0, src_start: 0, src_end: 0 },
             /* 31*/ { type: 'jump', addr: 99, src_start: 0, src_end: 0 },

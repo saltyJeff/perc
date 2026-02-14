@@ -7,15 +7,13 @@ const TextMode = (ace as any).require("ace/mode/text").Mode;
 
 
 export class PercHighlightRules extends TextHighlightRules {
-    constructor() {
+    constructor(builtins: string[] = ["print", "println"]) {
         super();
         const keywords = (
             "init|change|function|if|then|else|while|for|in|return|break|continue|debugger|new|true|false|nil|not|is|and|or|clone|typeof"
         );
 
-        const buildinConstants = (
-            "print|println"
-        );
+        const buildinConstants = builtins.join("|");
 
         this.$rules = {
             "start": [
@@ -104,9 +102,9 @@ class MatchingBraceOutdent {
 export class Mode extends TextMode {
     $outdent: MatchingBraceOutdent;
 
-    constructor() {
+    constructor(builtins: string[] = ["print", "println"]) {
         super();
-        this.HighlightRules = PercHighlightRules;
+        this.HighlightRules = function () { return new PercHighlightRules(builtins); } as any;
         this.$outdent = new MatchingBraceOutdent();
         this.$id = "ace/mode/perc";
     }

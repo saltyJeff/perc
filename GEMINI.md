@@ -136,10 +136,12 @@ Widgets respect the current `fill()` and `stroke()` colors for customization.
 - `checkbox(x, y)` → `bool` - Returns checked state
   - Fill color: check mark
   - Stroke color: box border
-- `radio(x, y)` → `bool` - Returns selected state
+- `radio(group, x, y)` → `bool` - Returns selected state
+  - `group`: string name of the group for mutual exclusion
   - Fill color: inner circle when selected
   - Stroke color: outer circle border
-- `input(x, y)` → `string` - Returns input text (uses `window.prompt` for IE11 compatibility)
+- `textbox(x, y)` → `string` - Returns input text (uses direct keyboard input)
+- `z_index(n)` - Sets the current layer for subsequent commands (higher is on top)
 
 #### Vector Graphics
 - `circle(x, y, radius)` - Draws a filled circle
@@ -162,6 +164,7 @@ Widgets respect the current `fill()` and `stroke()` colors for customization.
 - `rotate(angle)` - Rotates by angle in radians
 - `group()` - Saves current transformation state
 - `end_group()` - Restores transformation state
+- `z_index(n)` - Sets current layer depth (default 0, higher numbers on top)
 
 #### Raster Graphics
 - `image(x, y, width, height, url)` - Draws an image from URL

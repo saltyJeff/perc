@@ -3,6 +3,7 @@
 export interface GUICommand {
     type: string;
     args: any;
+    zIndex: number;
 }
 
 export class GUIManager {
@@ -17,6 +18,11 @@ export class GUIManager {
             if (event.data && event.data.type === 'input_update') {
                 this.inputState = event.data.state;
             }
+        });
+
+        // Cleanup: close GUI window when main window closes/refreshes
+        window.addEventListener('beforeunload', () => {
+            this.cleanup();
         });
     }
 
@@ -40,13 +46,17 @@ export class GUIManager {
         this.commandQueue = [];
     }
 
-    pushCommand(type: string, args: any) {
-        this.commandQueue.push({ type, args });
+    pushCommand(type: string, args: any, zIndex: number = 0) {
+        this.commandQueue.push({ type, args, zIndex });
     }
 
     flushCommands() {
         if (this.subwindow && !this.subwindow.closed) {
-            this.subwindow.postMessage({ type: 'render_batch', batch: this.commandQueue }, '*');
+            this.subwindow.postMessage({
+                type: 'render_batch',
+                batch: this.commandQueue,
+                state: this.inputState // Authoritative state sync
+            }, '*');
         }
         this.clearCommands();
     }
@@ -55,7 +65,22 @@ export class GUIManager {
         return this.inputState[id];
     }
 
+    setInput(id: string, val: any) {
+        this.inputState[id] = val;
+    }
+
+    getAllInputs(): Record<string, any> {
+        return this.inputState;
+    }
+
     isClicked(id: string): boolean {
         return !!this.inputState[id + '_clicked'];
+    }
+
+    cleanup() {
+        if (this.subwindow && !this.subwindow.closed) {
+            this.subwindow.close();
+            this.subwindow = null;
+        }
     }
 }

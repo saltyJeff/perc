@@ -16,16 +16,19 @@ describe("Async Input", () => {
         `;
 
         let output = "";
-        vm.register_foreign("print", (arg) => {
-            output = arg.to_string();
+        let inputPrompt = "";
+
+        // Mock print/input since they are no longer default
+        vm.register_foreign('print', (...args) => {
+            output += args.map(a => a.to_string()).join(' ');
             return new perc_nil();
         });
 
-        let inputPrompt = "";
-        vm.set_events({
-            on_input_request: (p) => {
-                inputPrompt = p;
-            }
+        vm.register_foreign('input', (prompt_str) => {
+            inputPrompt = prompt_str.to_string();
+            // Simulate VM pause for input
+            vm.is_waiting_for_input = true;
+            return new perc_nil();
         });
 
         vm.execute(code, parser);
