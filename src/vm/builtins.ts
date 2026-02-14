@@ -1,6 +1,6 @@
 import { perc_type, perc_number, perc_string, perc_map, perc_err } from "./perc_types";
 
-export type BuiltinFunc = (...args: perc_type[]) => perc_type | perc_type[];
+export type BuiltinFunc = (...args: perc_type[]) => perc_type;
 
 export const standardBuiltins: Record<string, BuiltinFunc> = {};
 

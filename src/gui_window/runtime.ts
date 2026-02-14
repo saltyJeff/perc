@@ -33,6 +33,7 @@ class GUIRuntime {
     private container: HTMLElement;
     private oldVNode: VNode;
     private inputState: Record<string, any> = {};
+    private spriteCache: Map<string, string> = new Map();
 
     constructor() {
         this.container = document.getElementById("gui-root")!;
@@ -513,11 +514,14 @@ class GUIRuntime {
     }
 
     private generateSpriteDataUrl(pixels: any[], w: number, h: number): string {
-        // Simple caching strategy: if pixels === lastPixels, return lastUrl?
-        // JS arrays allow object identity check if the VM passes the same reference.
-        // The VM creates new arrays every time? 'new [...]' creates new array.
-        // So identity check fails.
-        // Minimal approach: just draw to offscreen canvas.
+        const key = `${w}x${h}:${JSON.stringify(pixels)}`;
+
+        if (this.spriteCache.has(key)) {
+            const url = this.spriteCache.get(key)!;
+            this.spriteCache.delete(key);
+            this.spriteCache.set(key, url);
+            return url;
+        }
 
         const canvas = document.createElement("canvas");
         canvas.width = w;
@@ -535,7 +539,17 @@ class GUIRuntime {
         }
 
         ctx.putImageData(imgData, 0, 0);
-        return canvas.toDataURL();
+        const dataUrl = canvas.toDataURL();
+
+        if (this.spriteCache.size >= 20) {
+            const firstKey = this.spriteCache.keys().next().value;
+            if (firstKey) {
+                this.spriteCache.delete(firstKey);
+            }
+        }
+
+        this.spriteCache.set(key, dataUrl);
+        return dataUrl;
     }
 }
 

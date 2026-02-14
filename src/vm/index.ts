@@ -91,7 +91,7 @@ export class VM {
 
 
 
-    public register_builtins(funcs: Record<string, (...args: perc_type[]) => perc_type | perc_type[]>) {
+    public register_builtins(funcs: Record<string, (...args: perc_type[]) => perc_type>) {
         for (const [name, func] of Object.entries(funcs)) {
             this.register_foreign(name, func);
         }
@@ -175,11 +175,11 @@ export class VM {
         this.events = events;
     }
 
-    register_foreign(name: string, func: (...args: perc_type[]) => perc_type | perc_type[]) {
+    register_foreign(name: string, func: (...args: perc_type[]) => perc_type) {
         this.foreign_funcs.set(name, func);
     }
 
-    public get_foreign_funcs(): Map<string, (...args: perc_type[]) => perc_type | perc_type[]> {
+    public get_foreign_funcs(): Map<string, (...args: perc_type[]) => perc_type> {
         return this.foreign_funcs;
     }
 

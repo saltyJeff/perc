@@ -26,7 +26,7 @@
 - PEGGY is the parser generator. see `src/perc-grammar.pegjs` for reference
 - vite is the build tool
 - plain typescript + JQuery + ace editor are the runtime dependencies
-- we are targeting IE11, so restrict yourself accordingly. 
+- we are targeting browsers less than 5 years old, so modern features are available. 
 
 ## GUI
 - ace editor for the editor itself
@@ -81,7 +81,7 @@ All values descend from `perc_type`, which implements:
 - Arithmetic/Logic operator methods.
 - Truthiness checks.
 - Iterator support via `get_iterator()`.
-- IE11 compatible typed array backing for numeric types.
+- Typed array backing for numeric types.
 
 ### Execution Model
 - Main loop is a **Generator*- yielding after each instruction.

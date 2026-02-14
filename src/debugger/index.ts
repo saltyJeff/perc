@@ -245,7 +245,6 @@ export class Debugger {
         if (range) {
             $nameSpan.on('mouseenter touchstart', (e) => {
                 if (e.type === 'touchstart') e.preventDefault();
-                // console.log('Hover var:', name, range);
                 this.onVariableHover?.(range);
             });
             $nameSpan.on('mouseleave touchend', () => {
