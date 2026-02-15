@@ -89,55 +89,60 @@ $(() => {
     const runVM = async () => {
         if (!currentRunner) return;
 
-        isRunning = true;
-        isPaused = false;
-        // Don't clear isWaitingForInput here if we are resuming from input
-        if (!vm.is_waiting_for_input) isWaitingForInput = false;
+        return new Promise<void>((resolve) => {
+            isRunning = true;
+            isPaused = false;
+            // Don't clear isWaitingForInput here if we are resuming from input
+            if (!vm.is_waiting_for_input) isWaitingForInput = false;
 
-        // Don't clear isWaitingForInput here if we are resuming from input
-        if (!vm.is_waiting_for_input) isWaitingForInput = false;
+            editor.enter_run_mode();
+            updateToolbarState('running');
+            debug.setStatus('Running...');
+            $('#debugger-pane').addClass('collapsed');
+            $('.pane').each(function () { updatePaneButtons($(this)); });
 
-        editor.enter_run_mode();
-        editor.enter_run_mode();
-        updateToolbarState('running');
-        debug.setStatus('Running...');
-        $('#debugger-pane').addClass('collapsed');
-        $('.pane').each(function () { updatePaneButtons($(this)); });
-
-        executionInterval = setInterval(() => {
-            if (!isRunning || isPaused || isWaitingForInput) {
-                clearInterval(executionInterval);
-                return;
-            }
-
-            // Check VM internal wait state too
-            if (vm.is_waiting_for_input) {
-                isWaitingForInput = true;
-                debug.setStatus('Waiting for Input...');
-                clearInterval(executionInterval);
-                return;
-            }
-
-            // Run a batch of instructions
-            const BATCH_SIZE = 100;
-            for (let i = 0; i < BATCH_SIZE; i++) {
-                const result = currentRunner!.next();
-                if (result.done) {
-                    appConsole.status("Execution stopped.");
-                    stopVM();
+            executionInterval = setInterval(() => {
+                if (!isRunning || isPaused || isWaitingForInput) {
+                    clearInterval(executionInterval);
+                    // If just paused or waiting, we don't resolve yet? 
+                    // Actually, for REPL usage we want to know when it *finishes*.
+                    // But if it needs input, it pauses.
+                    // If we are waiting for input, the REPL flow is interrupted anyway.
+                    // So we probably only resolve when DONE or STOPPED.
+                    if (!isRunning) resolve();
                     return;
                 }
 
-                // If instruction triggered input wait
+                // Check VM internal wait state too
                 if (vm.is_waiting_for_input) {
                     isWaitingForInput = true;
                     debug.setStatus('Waiting for Input...');
-                    return; // Loop will restart next interval, catch wait state and stop
+                    clearInterval(executionInterval);
+                    return;
                 }
 
-                if (isPaused) return; // Hit a breakpoint during batch
-            }
-        }, 0);
+                // Run a batch of instructions
+                const BATCH_SIZE = 100;
+                for (let i = 0; i < BATCH_SIZE; i++) {
+                    const result = currentRunner!.next();
+                    if (result.done) {
+                        appConsole.status("Execution stopped.");
+                        stopVM();
+                        resolve();
+                        return;
+                    }
+
+                    // If instruction triggered input wait
+                    if (vm.is_waiting_for_input) {
+                        isWaitingForInput = true;
+                        debug.setStatus('Waiting for Input...');
+                        return; // Loop will restart next interval, catch wait state and stop
+                    }
+
+                    if (isPaused) return; // Hit a breakpoint during batch
+                }
+            }, 0);
+        });
     };
 
     const stepVM = () => {
@@ -322,7 +327,7 @@ while(true) then {
 }
 `);
 
-    $('#repl-input').on('keydown', (e) => {
+    $('#repl-input').on('keydown', async (e) => {
         if (e.key === 'Enter') {
             const input = $(e.target).val() as string;
             // Allow empty input? Yes.
@@ -343,12 +348,25 @@ while(true) then {
                     // For REPL, we execute new code with persistent scope
                     vm.execute_repl(input, parser);
                     currentRunner = vm.run();
-                    runVM();
+                    await runVM(); // Wait for completion
+
+                    if (vm.stack.length > 0) {
+                        const result = vm.stack.pop();
+                        if (result) {
+                            appConsole.print(result.to_string());
+                        }
+                    }
                 } catch (err: any) {
                     // Errors already logged
                 }
             }
         }
+    });
+
+    // Provide variables to Editor for global autocomplete
+    editor.setVariableProvider(() => {
+        // Return global variables from persistent scope
+        return Array.from(vm.get_global_scope().values.keys());
     });
 
     $('#console-clear').on('click', () => {
@@ -417,7 +435,7 @@ while(true) then {
         const code = editor.getValue();
         try {
             // Use VM to compile so we get the same errors as Run (e.g. Double Init)
-            const compiler = new Compiler();
+            const compiler = new Compiler(Array.from(vm.get_foreign_funcs().keys()));
             const ast = parser.parse(code);
             compiler.compile(ast);
             appConsole.status("Build: No errors found.");

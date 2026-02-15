@@ -112,4 +112,14 @@ describe('Expanded Suite', () => {
         expect(global_scope.lookup('x')?.to_string()).toBe("10");
         expect(global_scope.lookup('y')?.to_string()).toBe("15");
     });
+    it('should leave expression result on stack for REPL', () => {
+        const vm = new VM();
+        const code = `1 + 2`;
+        vm.execute_repl(code, parser);
+        const runner = vm.run();
+        while (!runner.next().done);
+
+        expect(vm.stack.length).toBe(1);
+        expect(vm.stack[0].to_string()).toBe("3");
+    });
 });

@@ -74,6 +74,12 @@ export class Editor {
         ];
     }
 
+    private variableProvider: () => string[] = () => [];
+
+    public setVariableProvider(provider: () => string[]) {
+        this.variableProvider = provider;
+    }
+
     public setBuiltins(builtins: string[]) {
         // Update syntax highlighting
         this.editor.session.setMode(new PercMode(builtins) as any);
@@ -92,9 +98,30 @@ export class Editor {
                     "is", "and", "or", "clone", "typeof"
                 ];
 
+                const generatedVars = new Set<string>();
+
+                // 1. Scan editor text for 'init varName'
+                const content = _session.getValue();
+                const initRegex = /\binit\s+([a-zA-Z_]\w*)/g;
+                let match;
+                while ((match = initRegex.exec(content)) !== null) {
+                    generatedVars.add(match[1]);
+                }
+
+                // 2. Function parameters? (Simplified: function foo(a,b))
+                // Note: regex-based parsing is flaky but better than nothing for "static" analysis in editor
+
+                // 3. VM provided variables (Globals from REPL)
+                const vmVars = this.variableProvider();
+                vmVars.forEach(v => generatedVars.add(v));
+
+                // 4. Remove keywords from vars to avoid duplicates (though type is different)
+                keywords.forEach(k => generatedVars.delete(k));
+
                 const completions = [
-                    ...keywords.map(word => ({ caption: word, value: word, meta: "keyword" })),
-                    ...builtins.map(word => ({ caption: word, value: word, meta: "builtin" }))
+                    ...keywords.map(word => ({ caption: word, value: word, meta: "keyword", score: 1000 })),
+                    ...builtins.map(word => ({ caption: word, value: word, meta: "builtin", score: 900 })),
+                    ...Array.from(generatedVars).map(word => ({ caption: word, value: word, meta: "variable", score: 2000 })) // High score for locals
                 ];
 
                 callback(null, completions);
@@ -103,6 +130,10 @@ export class Editor {
 
         const langTools = (ace as any).require("ace/ext/language_tools");
         this.editor.completers = [
+            // langTools.textCompleter, // Disable generic text completer to reduce noise? User wants specific suggestion.
+            // If we keep textCompleter, it might double suggest.
+            // But textCompleter is useful for strings/comments words.
+            // Let's keep it but maybe our variable completer (staticWordCompleter) having high score wins?
             langTools.textCompleter,
             langTools.keyWordCompleter,
             staticWordCompleter

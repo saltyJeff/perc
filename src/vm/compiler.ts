@@ -5,17 +5,7 @@ export class Compiler {
     private opcodes: opcode[] = [];
     private foreign_funcs: Set<string>;
 
-    constructor(foreign_funcs: string[] = [
-        'print', 'println', 'input',
-        'i8', 'u8', 'i16', 'u16', 'i32', 'u32', 'f32', 'f64', 'int', 'float',
-        'rgb', 'rgba', 'hsl', 'hsla', 'text_color',
-        'window', 'end_window',
-        'button', 'slider', 'textbox', 'checkbox', 'radio',
-        'rect', 'circle', 'line', 'polygon', 'text',
-        'fill', 'stroke', 'translate', 'scale', 'rotate',
-        'group', 'end_group',
-        'image', 'sprite'
-    ]) {
+    constructor(foreign_funcs: string[] = []) {
         this.foreign_funcs = new Set(foreign_funcs);
     }
 
@@ -46,6 +36,32 @@ export class Compiler {
         this.scopes = [];
         this.enter_scope(); // Global scope
         this.visit(ast);
+        this.exit_scope();
+        return this.opcodes;
+    }
+
+    compile_repl(ast: any): opcode[] {
+        this.opcodes = [];
+        this.scopes = [];
+        this.enter_scope(); // Global scope
+
+        if (ast.type === "SourceFile" && ast.body.length > 0) {
+            // Visit all but the last
+            for (let i = 0; i < ast.body.length - 1; i++) {
+                this.visit(ast.body[i]);
+            }
+            // Visit the last one specially
+            const last = ast.body[ast.body.length - 1];
+            if (last.type === "ExpressionStatement") {
+                this.visit(last.expression);
+                // DO NOT emit 'pop' so the value stays on stack
+            } else {
+                this.visit(last);
+            }
+        } else {
+            this.visit(ast);
+        }
+
         this.exit_scope();
         return this.opcodes;
     }
