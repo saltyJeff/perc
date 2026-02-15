@@ -43,7 +43,13 @@ export class Editor {
 
         // Basic keyword completion setup from PerC grammar
         const staticWordCompleter = {
-            getCompletions: (_editor: ace.Ace.Editor, _session: ace.Ace.EditSession, _pos: ace.Ace.Point, _prefix: string, callback: any) => {
+            getCompletions: (_editor: ace.Ace.Editor, _session: ace.Ace.EditSession, _pos: ace.Ace.Point, prefix: string, callback: any) => {
+                // Return early if prefix starts with a number, to avoid annoying suggestions like f32 when typing 3
+                if (/^\d/.test(prefix)) {
+                    callback(null, []);
+                    return;
+                }
+
                 const keywords = [
                     "init", "change", "function", "if", "then", "else", "while", "for", "in",
                     "return", "break", "continue", "new", "true", "false", "nil", "not",
@@ -74,7 +80,12 @@ export class Editor {
 
         // Update autocompletion
         const staticWordCompleter = {
-            getCompletions: (_editor: ace.Ace.Editor, _session: ace.Ace.EditSession, _pos: ace.Ace.Point, _prefix: string, callback: any) => {
+            getCompletions: (_editor: ace.Ace.Editor, _session: ace.Ace.EditSession, _pos: ace.Ace.Point, prefix: string, callback: any) => {
+                if (/^\d/.test(prefix)) {
+                    callback(null, []);
+                    return;
+                }
+
                 const keywords = [
                     "init", "change", "function", "if", "then", "else", "while", "for", "in",
                     "return", "break", "continue", "new", "true", "false", "nil", "not",

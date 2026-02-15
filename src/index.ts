@@ -3,6 +3,7 @@ import { Editor } from './editor/index';
 import { Debugger } from './debugger/index';
 import { Console } from './console/index';
 import { VM } from './vm/index';
+import { Compiler } from './vm/compiler';
 import { GUIManager } from './gui_window/manager';
 import { perc_string } from './vm/perc_types';
 // @ts-ignore
@@ -122,6 +123,7 @@ $(() => {
             for (let i = 0; i < BATCH_SIZE; i++) {
                 const result = currentRunner!.next();
                 if (result.done) {
+                    appConsole.status("Execution stopped.");
                     stopVM();
                     return;
                 }
@@ -152,7 +154,9 @@ $(() => {
 
     vm.set_events({
         on_error: (msg, location) => {
-            appConsole.error(`JS Error: ${msg}`, location);
+            // Avoid duplicate "Syntax Error" or "Error" prefixes if the message already has them
+            const cleanMsg = msg.replace(/^(Javascript Error|Syntax Error|Error):\s*/i, '');
+            appConsole.error(`Error: ${cleanMsg}`, location);
             debug.setStatus('Error');
             stopVM();
         },
@@ -336,8 +340,8 @@ while(true) then {
 
             if (input.trim()) {
                 try {
-                    // For REPL, we execute new code
-                    vm.execute(input, parser);
+                    // For REPL, we execute new code with persistent scope
+                    vm.execute_repl(input, parser);
                     currentRunner = vm.run();
                     runVM();
                 } catch (err: any) {
@@ -412,12 +416,18 @@ while(true) then {
         editor.clearErrorHighlight();
         const code = editor.getValue();
         try {
-            parser.parse(code);
+            // Use VM to compile so we get the same errors as Run (e.g. Double Init)
+            const compiler = new Compiler();
+            const ast = parser.parse(code);
+            compiler.compile(ast);
             appConsole.status("Build: No errors found.");
         } catch (e: any) {
-            if (e.location) {
-                const loc = e.location.start;
-                appConsole.error(`Build Error at Line ${loc.line}, Col ${loc.column}: ${e.message}`);
+            // Check for Peggy location or Compiler location
+            const loc = e.location ? e.location.start : null;
+            if (loc) {
+                // If the error message already starts with "Error" or similar, don't prefix heavily
+                const msg = e.message.replace(/^Error:\s*/, '');
+                appConsole.error(`Build Error: ${msg}`, e.location ? [e.location.start.offset, e.location.end.offset] : null);
                 editor.highlightError(loc.line, loc.column);
             } else {
                 appConsole.error(`Build Error: ${e.message}`);

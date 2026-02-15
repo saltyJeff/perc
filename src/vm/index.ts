@@ -125,6 +125,56 @@ export class VM {
         }
     }
 
+    execute_repl(source: string, parser: any) {
+        try {
+            const ast = parser.parse(source);
+            const compiler = new Compiler();
+            // We need to know if we are in a valid state to extend.
+            // Ideally, we append code? No, we just want to run this snippet in the current global context.
+            // But the compiler produces a full program with END.
+            // And `run()` expects to start from 0.
+
+            // Simpler approach for now:
+            // 1. Compile the REPL snippet.
+            // 2. Set VM code to this new snippet.
+            // 3. Reset IP to 0, stack to empty (or keep stack?), but KEEP global scope.
+            // 4. Ideally, we should reuse the global scope from the previous run.
+
+            this.code = compiler.compile(ast);
+
+            // Reset state BUT preserve global scope
+            this.ip = 0;
+            this.stack = [];
+            this.call_stack = [];
+            this.iterators = [];
+            this.is_waiting_for_input = false;
+            // this.in_debug_mode = false; // Keep debug mode if set?
+
+            // If we don't have a current frame (first run), create one.
+            // If we do, we want to REUSE the global scope.
+            if (!this.current_frame) {
+                const global_scope = new Scope();
+                this.current_frame = new Frame(global_scope, -1, 0, "global");
+                this.events.on_frame_push?.(this.current_frame);
+            } else {
+                // We have a frame. Find the global scope.
+                const global_scope = this.get_global_scope();
+                // Create a new frame using that same scope
+                this.current_frame = new Frame(global_scope, -1, 0, "global"); // Repl is always global for now
+                // We might need to notify debugger of this "new" frame start?
+                // The debugger might be confused if we just swap frames.
+                // But for REPL, it's like a fresh run in the same environment.
+                this.events.on_frame_push?.(this.current_frame);
+            }
+
+        } catch (e: any) {
+            const loc: [number, number] | null = e.location ? [e.location.start.offset, e.location.end.offset] : null;
+            console.error(e.message, loc);
+            this.events.on_error?.(e.message, loc);
+            throw e;
+        }
+    }
+
     resume_with_input(val: perc_type) {
         if (this.is_waiting_for_input) {
             // The 'input' function pushed a nil placeholder. We replace it.
@@ -169,6 +219,18 @@ export class VM {
 
     get_current_scope_values(): Record<string, { value: perc_type, range: [number, number] | null }> {
         return this.get_scope_variables(this.current_frame.scope);
+    }
+
+    public get_global_scope(): Scope {
+        // Find the bottom-most scope of the current frame, or the initial global scope
+        if (this.call_stack.length > 0) {
+            let s = this.call_stack[0].scope;
+            while (s.parent) s = s.parent;
+            return s;
+        }
+        let s = this.current_frame.scope;
+        while (s.parent) s = s.parent;
+        return s;
     }
 
     set_events(events: Partial<VMEventMap>) {
@@ -510,6 +572,16 @@ export class VM {
                         yield; // Always pause on debugger
                         last_src_start = op.src_start;
                         last_src_end = op.src_end;
+                        break;
+                    case 'enter_scope':
+                        this.current_frame.scope = new Scope(this.current_frame.scope);
+                        break;
+                    case 'exit_scope':
+                        if (this.current_frame.scope.parent) {
+                            this.current_frame.scope = this.current_frame.scope.parent;
+                        } else {
+                            throw new Error("Cannot exit global scope");
+                        }
                         break;
                 }
             } catch (e: any) {

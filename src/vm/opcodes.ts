@@ -134,6 +134,20 @@ export interface debugger_op extends base_op {
     type: 'debugger';
 }
 
+
+
+export interface typeof_op extends base_op {
+    type: 'typeof';
+}
+
+export interface enter_scope_op extends base_op {
+    type: 'enter_scope';
+}
+
+export interface exit_scope_op extends base_op {
+    type: 'exit_scope';
+}
+
 export type opcode =
     | push_op
     | pop_op
@@ -161,8 +175,6 @@ export type opcode =
     | member_load_op
     | member_store_op
     | debugger_op
-    | typeof_op;
-
-export interface typeof_op extends base_op {
-    type: 'typeof';
-}
+    | typeof_op
+    | enter_scope_op
+    | exit_scope_op;

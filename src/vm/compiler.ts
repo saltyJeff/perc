@@ -19,9 +19,34 @@ export class Compiler {
         this.foreign_funcs = new Set(foreign_funcs);
     }
 
+    private scopes: Set<string>[] = [];
+
+    private enter_scope() {
+        this.scopes.push(new Set());
+    }
+
+    private exit_scope() {
+        this.scopes.pop();
+    }
+
+    private declare_var(name: string, node: any) {
+        const current = this.scopes[this.scopes.length - 1];
+        if (current.has(name)) {
+            const loc: [number, number] | null = node.location ? [node.location.start.offset, node.location.end.offset] : null;
+            // Throw error with location property that VM can catch
+            const err: any = new Error(`Variable '${name}' already declared in this scope`);
+            err.location = node.location;
+            throw err;
+        }
+        current.add(name);
+    }
+
     compile(ast: any): opcode[] {
         this.opcodes = [];
+        this.scopes = [];
+        this.enter_scope(); // Global scope
         this.visit(ast);
+        this.exit_scope();
         return this.opcodes;
     }
 
@@ -38,12 +63,21 @@ export class Compiler {
 
         switch (node.type) {
             case "SourceFile":
-            case "Block":
+                // SourceFile is top level, scope already created in compile()
                 node.body.forEach((s: any) => this.visit(s));
+                break;
+
+            case "Block":
+                this.enter_scope();
+                this.emit({ type: 'enter_scope' }, node);
+                node.body.forEach((s: any) => this.visit(s));
+                this.emit({ type: 'exit_scope' }, node);
+                this.exit_scope();
                 break;
 
             case "VarInit":
                 this.visit(node.value);
+                this.declare_var(node.name, node);
                 this.emit({ type: 'init', name: node.name, catch: node.isCatch || false }, node);
                 break;
 
@@ -69,12 +103,16 @@ export class Compiler {
                 const jumpIfFalseIdx = this.opcodes.length;
                 this.emit({ type: 'jump_if_false', addr: 0 }, node);
 
+                // Consequence is a Block, so it handles scope
                 this.visit(node.consequence);
+
                 const jumpToEndIdx = this.opcodes.length;
                 this.emit({ type: 'jump', addr: 0 }, node);
 
                 (this.opcodes[jumpIfFalseIdx] as any).addr = this.opcodes.length;
                 if (node.alternative) {
+                    // alternative can be Block or IfStatement
+                    // If Block, handles scope. If ifstatement, it's recursive.
                     this.visit(node.alternative);
                 }
                 (this.opcodes[jumpToEndIdx] as any).addr = this.opcodes.length;
@@ -99,8 +137,23 @@ export class Compiler {
                 const forJumpOutIdx = this.opcodes.length;
                 this.emit({ type: 'jump_if_false', addr: 0 }, node);
 
+                // Create a scope for the loop variable?
+                // The body is a Block, so it creates a scope.
+                // But the 'item' is declared for the loop.
+                // Ideally, 'item' should be in the block's scope or a wrapping scope?
+                // Let's create a scope for the loop variable + body
+                this.enter_scope();
+                this.declare_var(node.item, node);
                 this.emit({ type: 'init', name: node.item, catch: false }, node);
+
+                // We must handle the body manually to avoid double scope creation if we just call visit(Block)
+                // But the parser guarantees body is a Block.
+                // If we call visit(Block), it creates ANOTHER scope.
+                // That's fine, nested scopes are OK.
                 this.visit(node.body);
+
+                this.exit_scope();
+
                 this.emit({ type: 'jump', addr: forStartAddr }, node);
                 (this.opcodes[forJumpOutIdx] as any).addr = this.opcodes.length;
                 break;
@@ -183,11 +236,19 @@ export class Compiler {
                 this.emit({ type: 'new_map', size: node.pairs.length }, node);
                 break;
 
+            case "TupleLiteral":
+                node.elements.forEach((el: any) => this.visit(el));
+                this.emit({ type: 'new_tuple', size: node.elements.length }, node);
+                break;
+
             case "FunctionDeclaration":
             case "FunctionLiteral":
                 const jumpOverFuncIdx = this.opcodes.length;
                 this.emit({ type: 'jump', addr: 0 }, node);
                 const funcStartAddr = this.opcodes.length;
+
+                // Function creates a new scope for arguments
+                this.enter_scope();
 
                 // Parameters are pushed to stack by 'call', we just need to 'init' them
                 // parameters is just string array from grammar
@@ -197,10 +258,30 @@ export class Compiler {
                 // Stack: [..., a, b]
                 // Need to pop b, then a.
                 params.slice().reverse().forEach((p: string) => {
+                    this.declare_var(p, node);
                     this.emit({ type: 'init', name: p, catch: false }, node);
                 });
 
+                // Body is a Block, but we opened a scope for params.
+                // We should reuse this scope or enter a new one?
+                // The 'Block' visit will enter a NEW scope.
+                // This means 'params' are in outer scope of 'body'.
+                // If I declare 'a' in 'body', it shadows param 'a'.
+                // Standard JS prevents `let a` if param `a` exists?
+                // "Duplicate parameter name not allowed in this context"
+                // But here, if visit(Block) pushes new scope, then `init a` inside block is valid shadowing.
+                // Is that desired? Usually params are in the function scope, and var declarations in top level of function are in same scope.
+                // But our language treats Block as scope.
+                // If I just call visit(node.body), it creates a child scope.
+                // I think that's acceptable for now unless user complains.
+
+                // wait, "body" is a Block node.
+                // if I manually visit children of block without `enter_scope`?
+                // Let's stick to standard behavior: params are in function scope. Body block is a child scope.
                 this.visit(node.body);
+
+                this.exit_scope(); // Close function scope
+
                 // Ensure every function returns nil if it doesn't have an explicit return
                 this.emit({ type: 'push', imm: new perc_nil() }, node);
                 this.emit({ type: 'ret' }, node);
@@ -215,6 +296,7 @@ export class Compiler {
                     name: node.type === "FunctionDeclaration" ? node.name : "anonymous"
                 }, node);
                 if (node.type === "FunctionDeclaration") {
+                    this.declare_var(node.name, node);
                     this.emit({ type: 'init', name: node.name, catch: false }, node);
                 }
                 break;
