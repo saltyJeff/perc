@@ -244,10 +244,10 @@ init msg = "Click me!";
 init val = 50;
 
 while(true) then {
-    window();
+    window(800, 600);
     
     fill(rgb(255, 255, 255));
-    rect(0, 0, 640, 480);
+    rect(0, 0, 800, 600);
     
     fill(rgb(0, 0, 0));
     text("Welcome to PerC GUI!", 320, 30, "center");
@@ -413,6 +413,7 @@ while(true) then {
         appConsole.status("Run: Starting execution...");
         const code = editor.getValue();
         try {
+            gui.resetIntentional();
             vm.execute(code, parser);
             vm.in_debug_mode = false;
             currentRunner = vm.run();

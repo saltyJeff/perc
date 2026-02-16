@@ -24,8 +24,9 @@
 
 ## Architecture
 - PEGGY is the parser generator. see `src/perc-grammar.pegjs` for reference
-- vite is the build tool
-- plain typescript + JQuery + ace editor are the runtime dependencies
+- vite is the build tool. Run `npm run dev` for dev server, `npm run build` for build.
+  - the build is much stricter than the dev server, so be sure to run `npm run build` before submitting code.
+- currently we use JQuery, but we're trying to migrate to solidjs
 - we are targeting browsers less than 5 years old, so modern features are available. 
 
 ## GUI
@@ -121,14 +122,14 @@ while(true) then {
 ### Available Functions
 
 #### Window Management
-- `window()` - Clears the canvas and begins a new frame
+- `window(width?, height?)` - Clears the canvas, begins a new frame, and sets logical dimensions (defaults to 640x480)
 - `end_window()` - Flushes all queued commands to the GUI window
 
 #### Immediate Mode Widgets
 Widgets respect the current `fill()` and `stroke()` colors for customization.
 
 - `button(text, x, y)` → `bool` - Returns `true` when clicked
-  - Fill color: hover state background
+  - Fill color: background color (lightens or darkens on hover based on brightness)
   - Stroke color: border and text color
 - `slider(x, y)` → `number` - Returns value 0-100
   - Fill color: slider knob

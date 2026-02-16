@@ -1,31 +1,24 @@
 import type { BuiltinFunc } from "../vm/builtins";
 import { perc_nil, perc_number, perc_string, perc_map, perc_bool, perc_list, perc_err, perc_type } from "../vm/perc_types";
+import type { Color, GUIElements, Position } from "./gui_cmds";
 import { GUIManager } from "./manager";
 
+function percColorToColor(color: perc_type): Color {
+    console.assert(color instanceof perc_map);
+    const r = color.get(new perc_string('r'));
+    const g = color.get(new perc_string('g'));
+    const b = color.get(new perc_string('b'));
+    const a = color.get(new perc_string('a'));
+    return { r: (r as any).buffer[0], g: (g as any).buffer[0], b: (b as any).buffer[0], a: (a as any).buffer[0] };
+}
+
+
 export const createGuiBuiltins = (gui: GUIManager): Record<string, BuiltinFunc> => {
-    // --- State management ---
-    let fillStack = [{ r: 0, g: 0, b: 0, a: 1 }];
-    let strokeStack = [{ r: 0, g: 0, b: 0, a: 1, width: 1 }];
-    let matrixStack = [[1, 0, 0, 1, 0, 0]]; // a, b, c, d, e, f (identity)
-
-    const multiplyMatrices = (m1: number[], m2: number[]) => {
-        const [a1, b1, c1, d1, e1, f1] = m1;
-        const [a2, b2, c2, d2, e2, f2] = m2;
-        return [
-            a1 * a2 + c1 * b2,
-            b1 * a2 + d1 * b2,
-            a1 * c2 + c1 * d2,
-            b1 * c2 + d1 * d2,
-            a1 * e2 + c1 * f2 + e1,
-            b1 * e2 + d1 * f2 + f1
-        ];
-    };
-
-    const getSnapshot = () => ({
-        fill: fillStack[fillStack.length - 1],
-        stroke: strokeStack[strokeStack.length - 1],
-        matrix: matrixStack[matrixStack.length - 1]
-    });
+    const spriteConversionCache = new WeakMap<perc_list, Color[]>();
+    let commandList: GUIElements[] = [];
+    function pushCmd(cmd: GUIElements) {
+        commandList.push(cmd);
+    }
 
     // Type validation helper
     function validateGUIArgs(funcName: string, args: (perc_type | undefined)[], expected: string[]): perc_err | undefined {
@@ -54,86 +47,76 @@ export const createGuiBuiltins = (gui: GUIManager): Record<string, BuiltinFunc> 
     }
 
     return {
-        'window': () => {
-            gui.openWindow();
-            gui.clearCommands();
-            fillStack = [{ r: 0, g: 0, b: 0, a: 1 }];
-            strokeStack = [{ r: 0, g: 0, b: 0, a: 1, width: 1 }];
-            matrixStack = [[1, 0, 0, 1, 0, 0]];
+        'window': (width, height) => {
+            const err = validateGUIArgs('window', [width, height], ['number?', 'number?']);
+            if (err) return err;
+
+            commandList = [];
+
+            const w = width instanceof perc_number ? (width as any).buffer[0] : 640;
+            const h = height instanceof perc_number ? (height as any).buffer[0] : 480;
+
+            const success = gui.openWindow(w, h);
+            if (!success) {
+                return new perc_err("Window was closed");
+            }
             return new perc_nil();
         },
 
         'end_window': () => {
-            gui.flushCommands();
+            gui.sendWindowUpdate(commandList as any); // Cast because manager expects Group, but we send list now
             return new perc_nil();
         },
 
         'button': (text, x, y) => {
             const err = validateGUIArgs('button', [text, x, y], ['string', 'number', 'number']);
             if (err) return err;
-            const id = `btn_${text.to_string()}_${x.to_string()}_${y.to_string()}`;
-            gui.pushCommand('button', { id, text: text.to_string(), x: (x as any).buffer[0], y: (y as any).buffer[0], ...getSnapshot() });
+            const textStr = text.to_string();
+            const xVal = (x as any).buffer[0];
+            const yVal = (y as any).buffer[0];
+            const id = `btn_${textStr}_${xVal}_${yVal}`;
+
+            pushCmd({
+                type: 'button',
+                id,
+                text: textStr,
+                pos: { x: xVal, y: yVal }
+            });
             return new perc_bool(gui.isClicked(id));
         },
 
         'fill': (color) => {
             const err = validateGUIArgs('fill', [color], ['color']);
             if (err) return err;
-
-            if (!(color instanceof perc_map)) return new perc_err("fill: invalid color map");
-
-            const rVal = color.get(new perc_string('r'));
-            const gVal = color.get(new perc_string('g'));
-            const bVal = color.get(new perc_string('b'));
-            const aVal = color.get(new perc_string('a'));
-
-            if (!(rVal instanceof perc_number) || !(gVal instanceof perc_number) || !(bVal instanceof perc_number)) {
-                return new perc_err("fill: color map must contain r, g, b numbers");
-            }
-
-            const r = (rVal as any).buffer[0];
-            const g = (gVal as any).buffer[0];
-            const b = (bVal as any).buffer[0];
-            const a = (aVal instanceof perc_number) ? (aVal as any).buffer[0] : 1;
-
-            fillStack[fillStack.length - 1] = { r, g, b, a };
+            pushCmd({
+                type: 'fill',
+                fill: percColorToColor(color)
+            });
             return new perc_nil();
         },
 
         'stroke': (color, width) => {
             const err = validateGUIArgs('stroke', [color, width], ['color', 'number?']);
             if (err) return err;
-
-            if (!(color instanceof perc_map)) return new perc_err("stroke: invalid color map");
-
-            const rVal = color.get(new perc_string('r'));
-            const gVal = color.get(new perc_string('g'));
-            const bVal = color.get(new perc_string('b'));
-            const aVal = color.get(new perc_string('a'));
-
-            if (!(rVal instanceof perc_number) || !(gVal instanceof perc_number) || !(bVal instanceof perc_number)) {
-                return new perc_err("stroke: color map must contain r, g, b numbers");
+            const cmd: any = {
+                type: 'stroke',
+                stroke: percColorToColor(color)
+            };
+            if (width) {
+                cmd.strokeWidth = (width as any).buffer[0];
             }
-
-            const r = (rVal as any).buffer[0];
-            const g = (gVal as any).buffer[0];
-            const b = (bVal as any).buffer[0];
-            const a = (aVal instanceof perc_number) ? (aVal as any).buffer[0] : 1;
-
-            const w = (width instanceof perc_number) ? (width as any).buffer[0] : 1;
-            strokeStack[strokeStack.length - 1] = { r, g, b, a, width: w };
+            pushCmd(cmd);
             return new perc_nil();
         },
 
         'rect': (x, y, w, h) => {
             const err = validateGUIArgs('rect', [x, y, w, h], ['number', 'number', 'number', 'number']);
             if (err) return err;
-            gui.pushCommand('rect', {
-                x: (x as any).buffer[0],
-                y: (y as any).buffer[0],
-                w: (w as any).buffer[0],
-                h: (h as any).buffer[0],
-                ...getSnapshot()
+            pushCmd({
+                type: 'rect',
+                pos: { x: (x as any).buffer[0], y: (y as any).buffer[0] },
+                width: (w as any).buffer[0],
+                height: (h as any).buffer[0]
             });
             return new perc_nil();
         },
@@ -141,11 +124,10 @@ export const createGuiBuiltins = (gui: GUIManager): Record<string, BuiltinFunc> 
         'circle': (x, y, r) => {
             const err = validateGUIArgs('circle', [x, y, r], ['number', 'number', 'number']);
             if (err) return err;
-            gui.pushCommand('circle', {
-                x: (x as any).buffer[0],
-                y: (y as any).buffer[0],
-                r: (r as any).buffer[0],
-                ...getSnapshot()
+            pushCmd({
+                type: 'circle',
+                pos: { x: (x as any).buffer[0], y: (y as any).buffer[0] },
+                radius: (r as any).buffer[0]
             });
             return new perc_nil();
         },
@@ -153,12 +135,10 @@ export const createGuiBuiltins = (gui: GUIManager): Record<string, BuiltinFunc> 
         'line': (x1, y1, x2, y2) => {
             const err = validateGUIArgs('line', [x1, y1, x2, y2], ['number', 'number', 'number', 'number']);
             if (err) return err;
-            gui.pushCommand('line', {
-                x1: (x1 as any).buffer[0],
-                y1: (y1 as any).buffer[0],
-                x2: (x2 as any).buffer[0],
-                y2: (y2 as any).buffer[0],
-                ...getSnapshot()
+            pushCmd({
+                type: 'line',
+                p1: { x: (x1 as any).buffer[0], y: (y1 as any).buffer[0] },
+                p2: { x: (x2 as any).buffer[0], y: (y2 as any).buffer[0] }
             });
             return new perc_nil();
         },
@@ -166,13 +146,11 @@ export const createGuiBuiltins = (gui: GUIManager): Record<string, BuiltinFunc> 
         'text': (text, x, y, align) => {
             const err = validateGUIArgs('text', [text, x, y, align], ['string', 'number', 'number', 'string?']);
             if (err) return err;
-            const alignment = align instanceof perc_string ? align.to_string() : 'left';
-            gui.pushCommand('text', {
+            pushCmd({
+                type: 'text',
                 text: text.to_string(),
-                x: (x as any).buffer[0],
-                y: (y as any).buffer[0],
-                align: alignment,
-                ...getSnapshot()
+                pos: { x: (x as any).buffer[0], y: (y as any).buffer[0] },
+                align: align instanceof perc_string ? align.to_string() : 'left'
             });
             return new perc_nil();
         },
@@ -180,9 +158,19 @@ export const createGuiBuiltins = (gui: GUIManager): Record<string, BuiltinFunc> 
         'slider': (x, y) => {
             const err = validateGUIArgs('slider', [x, y], ['number', 'number']);
             if (err) return err;
-            const id = `slider_${(x as any).buffer[0]}_${(y as any).buffer[0]}`;
+            const xVal = (x as any).buffer[0];
+            const yVal = (y as any).buffer[0];
+            const id = `slider_${xVal}_${yVal}`;
             const currentVal = gui.getInput(id + '_val') || 0;
-            gui.pushCommand('slider', { id, x: (x as any).buffer[0], y: (y as any).buffer[0], val: currentVal, ...getSnapshot() });
+
+            pushCmd({
+                type: 'slider',
+                id,
+                pos: { x: xVal, y: yVal },
+                width: 200,
+                height: 20,
+                val: currentVal as number
+            });
             return new perc_number(currentVal);
         },
 
@@ -191,7 +179,18 @@ export const createGuiBuiltins = (gui: GUIManager): Record<string, BuiltinFunc> 
             if (err) return err;
             const tx = (x as any).buffer[0];
             const ty = (y as any).buffer[0];
-            matrixStack[matrixStack.length - 1] = multiplyMatrices(matrixStack[matrixStack.length - 1], [1, 0, 0, 1, tx, ty]);
+
+            // Standard translation matrix
+            const mat = [
+                1, 0, tx,
+                0, 1, ty,
+                0, 0, 1
+            ] as [number, number, number, number, number, number, number, number, number];
+
+            pushCmd({
+                type: 'transform',
+                transform: mat
+            });
             return new perc_nil();
         },
 
@@ -200,7 +199,17 @@ export const createGuiBuiltins = (gui: GUIManager): Record<string, BuiltinFunc> 
             if (err) return err;
             const sx = (x as any).buffer[0];
             const sy = (y as any).buffer[0];
-            matrixStack[matrixStack.length - 1] = multiplyMatrices(matrixStack[matrixStack.length - 1], [sx, 0, 0, sy, 0, 0]);
+
+            const mat = [
+                sx, 0, 0,
+                0, sy, 0,
+                0, 0, 1
+            ] as [number, number, number, number, number, number, number, number, number];
+
+            pushCmd({
+                type: 'transform',
+                transform: mat
+            });
             return new perc_nil();
         },
 
@@ -210,34 +219,39 @@ export const createGuiBuiltins = (gui: GUIManager): Record<string, BuiltinFunc> 
             const a = (angle as any).buffer[0];
             const cos = Math.cos(a);
             const sin = Math.sin(a);
-            matrixStack[matrixStack.length - 1] = multiplyMatrices(matrixStack[matrixStack.length - 1], [cos, sin, -sin, cos, 0, 0]);
+
+            const mat = [
+                cos, -sin, 0,
+                sin, cos, 0,
+                0, 0, 1
+            ] as [number, number, number, number, number, number, number, number, number];
+
+            pushCmd({
+                type: 'transform',
+                transform: mat
+            });
             return new perc_nil();
         },
 
         'group': () => {
-            fillStack.push({ ...fillStack[fillStack.length - 1] });
-            strokeStack.push({ ...strokeStack[strokeStack.length - 1] });
-            matrixStack.push([...matrixStack[matrixStack.length - 1]]);
+            pushCmd({ type: 'group' });
             return new perc_nil();
         },
 
         'end_group': () => {
-            if (fillStack.length > 1) fillStack.pop();
-            if (strokeStack.length > 1) strokeStack.pop();
-            if (matrixStack.length > 1) matrixStack.pop();
+            pushCmd({ type: 'end_group' });
             return new perc_nil();
         },
 
         'image': (x, y, w, h, url) => {
             const err = validateGUIArgs('image', [x, y, w, h, url], ['number', 'number', 'number', 'number', 'string']);
             if (err) return err;
-            gui.pushCommand('image', {
-                x: (x as any).buffer[0],
-                y: (y as any).buffer[0],
-                w: (w as any).buffer[0],
-                h: (h as any).buffer[0],
-                url: url.to_string(),
-                ...getSnapshot()
+            pushCmd({
+                type: 'image',
+                pos: { x: (x as any).buffer[0], y: (y as any).buffer[0] },
+                width: (w as any).buffer[0],
+                height: (h as any).buffer[0],
+                src: url.to_string()
             });
             return new perc_nil();
         },
@@ -245,39 +259,41 @@ export const createGuiBuiltins = (gui: GUIManager): Record<string, BuiltinFunc> 
         'sprite': (x, y, w, h, data) => {
             const err = validateGUIArgs('sprite', [x, y, w, h, data], ['number', 'number', 'number', 'number', 'array']);
             if (err) return err;
-            const pixels: any[] = [];
+
+            let pixels: Color[] = [];
             if (data instanceof perc_list) {
-                let idx = 0;
-                for (const pixel of data.elements) {
-                    if (!(pixel instanceof perc_map)) {
-                        return new perc_err(`sprite: pixel at index ${idx} is not a color map`);
+                // Check cache first
+                const cached = spriteConversionCache.get(data);
+                if (cached) {
+                    pixels = cached;
+                } else {
+                    for (const pixel of data.elements) {
+                        if (!(pixel instanceof perc_map)) {
+                            return new perc_err(`sprite: pixel data contains non-color value`);
+                        }
+
+                        const rVal = pixel.get(new perc_string('r'));
+                        const gVal = pixel.get(new perc_string('g'));
+                        const bVal = pixel.get(new perc_string('b'));
+                        const aVal = pixel.get(new perc_string('a'));
+
+                        pixels.push({
+                            r: (rVal instanceof perc_number) ? (rVal as any).buffer[0] : 0,
+                            g: (gVal instanceof perc_number) ? (gVal as any).buffer[0] : 0,
+                            b: (bVal instanceof perc_number) ? (bVal as any).buffer[0] : 0,
+                            a: (aVal instanceof perc_number) ? (aVal as any).buffer[0] : 1
+                        });
                     }
-
-                    const rVal = pixel.get(new perc_string('r'));
-                    const gVal = pixel.get(new perc_string('g'));
-                    const bVal = pixel.get(new perc_string('b'));
-                    const aVal = pixel.get(new perc_string('a'));
-
-                    if (!(rVal instanceof perc_number) || !(gVal instanceof perc_number) || !(bVal instanceof perc_number)) {
-                        return new perc_err(`sprite: pixel at index ${idx} missing valid r, g, b components`);
-                    }
-
-                    pixels.push({
-                        r: (rVal as any).buffer[0],
-                        g: (gVal as any).buffer[0],
-                        b: (bVal as any).buffer[0],
-                        a: (aVal instanceof perc_number) ? (aVal as any).buffer[0] : 1
-                    });
-                    idx++;
+                    // Cache the result for this perc_list instance
+                    spriteConversionCache.set(data, pixels);
                 }
             }
-            gui.pushCommand('sprite', {
-                x: (x as any).buffer[0],
-                y: (y as any).buffer[0],
-                w: (w as any).buffer[0],
-                h: (h as any).buffer[0],
-                data: pixels,
-                ...getSnapshot()
+            pushCmd({
+                type: 'sprite',
+                pos: { x: (x as any).buffer[0], y: (y as any).buffer[0] },
+                width: (w as any).buffer[0],
+                height: (h as any).buffer[0],
+                data: pixels
             });
             return new perc_nil();
         },
@@ -285,7 +301,7 @@ export const createGuiBuiltins = (gui: GUIManager): Record<string, BuiltinFunc> 
         'polygon': (x, y, points) => {
             const err = validateGUIArgs('polygon', [x, y, points], ['number', 'number', 'array']);
             if (err) return err;
-            const pts: { x: number, y: number }[] = [];
+            const pts: Position[] = [];
             if (points instanceof perc_list) {
                 for (const p of points.elements) {
                     if (p instanceof perc_map) {
@@ -296,20 +312,14 @@ export const createGuiBuiltins = (gui: GUIManager): Record<string, BuiltinFunc> 
                     }
                 }
             }
-            gui.pushCommand('polygon', { x: (x as any).buffer[0], y: (y as any).buffer[0], points: pts, ...getSnapshot() });
-            return new perc_nil();
-        },
 
-        'update_image': (x, y, w, h, url) => {
-            const err = validateGUIArgs('update_image', [x, y, w, h, url], ['number', 'number', 'number', 'number', 'string']);
-            if (err) return err;
-            gui.pushCommand('update_image', {
-                x: (x as any).buffer[0],
-                y: (y as any).buffer[0],
-                w: (w as any).buffer[0],
-                h: (h as any).buffer[0],
-                url: url.to_string(),
-                ...getSnapshot()
+            const originX = (x as any).buffer[0];
+            const originY = (y as any).buffer[0];
+            const adjustedPts = pts.map(p => ({ x: p.x + originX, y: p.y + originY }));
+
+            pushCmd({
+                type: 'polygon',
+                pos: adjustedPts
             });
             return new perc_nil();
         },
@@ -317,18 +327,37 @@ export const createGuiBuiltins = (gui: GUIManager): Record<string, BuiltinFunc> 
         'textbox': (x, y) => {
             const err = validateGUIArgs('textbox', [x, y], ['number', 'number']);
             if (err) return err;
-            const id = `textbox_${(x as any).buffer[0]}_${(y as any).buffer[0]}`;
+            const xVal = (x as any).buffer[0];
+            const yVal = (y as any).buffer[0];
+            const id = `textbox_${xVal}_${yVal}`;
             const val = gui.getInput(id + '_val') || "";
-            gui.pushCommand('textbox', { id, x: (x as any).buffer[0], y: (y as any).buffer[0], ...getSnapshot() });
+
+            pushCmd({
+                type: 'textbox',
+                id,
+                pos: { x: xVal, y: yVal },
+                width: 150,
+                height: 25,
+                prompt: "",
+                val: val as string
+            });
             return new perc_string(val);
         },
 
         'checkbox': (x, y) => {
             const err = validateGUIArgs('checkbox', [x, y], ['number', 'number']);
             if (err) return err;
-            const id = `chk_${(x as any).buffer[0]}_${(y as any).buffer[0]}`;
+            const xVal = (x as any).buffer[0];
+            const yVal = (y as any).buffer[0];
+            const id = `chk_${xVal}_${yVal}`;
             const val = gui.getInput(id + '_val') || false;
-            gui.pushCommand('checkbox', { id, x: (x as any).buffer[0], y: (y as any).buffer[0], val, ...getSnapshot() });
+
+            pushCmd({
+                type: 'checkbox',
+                id,
+                pos: { x: xVal, y: yVal },
+                val: val as boolean
+            });
             return new perc_bool(val);
         },
 
@@ -336,7 +365,9 @@ export const createGuiBuiltins = (gui: GUIManager): Record<string, BuiltinFunc> 
             const err = validateGUIArgs('radio', [group, x, y], ['string', 'number', 'number']);
             if (err) return err;
             const groupName = group.to_string();
-            const id = `rad_${groupName}_${(x as any).buffer[0]}_${(y as any).buffer[0]}`;
+            const xVal = (x as any).buffer[0];
+            const yVal = (y as any).buffer[0];
+            const id = `rad_${groupName}_${xVal}_${yVal}`;
             const val = gui.getInput(id + '_val') || false;
 
             if (gui.isClicked(id)) {
@@ -347,7 +378,14 @@ export const createGuiBuiltins = (gui: GUIManager): Record<string, BuiltinFunc> 
                     }
                 }
             }
-            gui.pushCommand('radio', { id, x: (x as any).buffer[0], y: (y as any).buffer[0], val, ...getSnapshot() });
+
+            pushCmd({
+                type: 'radio',
+                id,
+                group: groupName,
+                pos: { x: xVal, y: yVal },
+                val: val as boolean
+            });
             return new perc_bool(val);
         }
     };

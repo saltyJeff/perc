@@ -8,21 +8,24 @@
             margin: 0;
             padding: 0;
             overflow: hidden;
-            background: #f0f0f0;
-            color: #000;
-            font-family: sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            background: #222;
+        }
+
+        #gui-root {
             width: 100vw;
             height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-y: auto;
+            font-family: sans-serif;
         }
     </style>
 </head>
 
 <body>
     <div id="gui-root"></div>
-    <script type="module" src="/src/gui_window/runtime.ts"></script>
+    <script type="module" src="/src/gui_window/runtime.tsx"></script>
 </body>
 
 </html>
