@@ -630,14 +630,18 @@ export class VM {
             case '*': return left.mul(right);
             case '/': return left.div(right);
             case '%': return left.mod(right);
-            case '==': return left.eq(right);
+            case '==':
+                return left.eq(right); // for ==
+            case 'is': return new perc_bool(left === right);
             case '!=': return left.ne(right);
             case '<': return left.lt(right);
             case '<=': return left.le(right);
             case '>': return left.gt(right);
             case '>=': return left.ge(right);
-            case '&&': return new perc_bool(left.is_truthy() && right.is_truthy());
-            case '||': return new perc_bool(left.is_truthy() || right.is_truthy());
+            case '&&':
+            case 'and': return new perc_bool(left.is_truthy() && right.is_truthy());
+            case '||':
+            case 'or': return new perc_bool(left.is_truthy() || right.is_truthy());
             case '**': return left.pow(right);
             case '&': return left.bitwise_and(right);
             case '|': return left.bitwise_or(right);

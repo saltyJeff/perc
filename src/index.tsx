@@ -6,14 +6,15 @@ import { VM } from './vm/index';
 import { Compiler } from './vm/compiler';
 import { GUIManager } from './gui_window/manager';
 import { perc_string } from './vm/perc_types';
-// @ts-ignore
-import parser from './perc-grammar.pegjs';
+import * as parser from './ast-adapter';
 
 import './style.css';
 import './console/console.css';
 import './editor/editor.css';
 import './debugger/debugger.css';
 import './ui/perc_value.css';
+import { render } from 'solid-js/web';
+import { ZoomControl } from './ui/ZoomControl';
 import { standardBuiltins } from './vm/builtins';
 import { createConsoleBuiltins } from './console/builtins';
 import { createGuiBuiltins } from './gui_window/builtins';
@@ -552,39 +553,21 @@ while(true) then {
 
     // --- Menu & Pane Actions ---
 
-    // Zoom Logic
-    const setZoom = (target: string, size: number) => {
-        size = Math.max(4, Math.min(42, size));
-        $(`input.zoom-slider[data-target="${target}"]`).val(size);
-        const percentage = Math.round((size / 14) * 100);
-        $(`button.zoom-reset[data-target="${target}"]`).text(percentage + '%');
+    // --- Zoom Logic (SolidJS) ---
+    const editorZoomRoot = document.getElementById('editor-zoom-root');
+    if (editorZoomRoot) {
+        render(() => <ZoomControl onZoom={(size) => editor.setFontSize(size)} />, editorZoomRoot);
+    }
 
-        if (target === 'editor') {
-            editor.setFontSize(size);
-        } else if (target === 'debugger') {
-            $('#debugger-content').css('font-size', size + 'px');
-        } else if (target === 'console') {
-            $('#console-output').css('font-size', size + 'px');
-        }
-    };
+    const debuggerZoomRoot = document.getElementById('debugger-zoom-root');
+    if (debuggerZoomRoot) {
+        render(() => <ZoomControl onZoom={(size) => $('#debugger-content').css('font-size', size + 'px')} />, debuggerZoomRoot);
+    }
 
-    $('input.zoom-slider').on('input', function () {
-        const target = $(this).data('target');
-        const size = parseInt($(this).val() as string);
-        setZoom(target, size);
-    });
-
-    $('button.zoom-btn').on('click', function () {
-        const target = $(this).data('target');
-        const isIn = $(this).hasClass('zoom-in');
-        const currentVal = parseInt($(`input.zoom-slider[data-target="${target}"]`).val() as string);
-        setZoom(target, currentVal + (isIn ? 1 : -1));
-    });
-
-    $('button.zoom-reset').on('click', function () {
-        const target = $(this).data('target');
-        setZoom(target, 14);
-    });
+    const consoleZoomRoot = document.getElementById('console-zoom-root');
+    if (consoleZoomRoot) {
+        render(() => <ZoomControl onZoom={(size) => $('#console-output').css('font-size', size + 'px')} />, consoleZoomRoot);
+    }
 
     const updatePaneButtons = (pane: JQuery) => {
         const isMax = pane.hasClass('maximized');

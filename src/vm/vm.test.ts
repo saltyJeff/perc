@@ -20,8 +20,10 @@ describe('PerC Virtual Machine', () => {
         });
 
         if (setup) setup(vm);
+        vm.in_debug_mode = true;
 
         const runner = vm.run();
+
         let steps = 0;
         let result = runner.next();
         while (!result.done && steps < 5000) {

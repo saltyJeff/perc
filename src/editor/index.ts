@@ -1,207 +1,169 @@
-import ace from 'ace-builds';
-import 'ace-builds/src-noconflict/theme-one_dark';
-import 'ace-builds/src-noconflict/theme-chrome';
-import './perc-theme';
-import { Mode as PercMode } from './perc-mode';
-import 'ace-builds/src-noconflict/ext-language_tools';
-import 'ace-builds/src-noconflict/mode-text';
+import { basicSetup, EditorView } from "codemirror";
+import { keymap, Decoration } from "@codemirror/view";
+import type { DecorationSet } from "@codemirror/view";
+import { EditorState, StateEffect, StateField } from "@codemirror/state";
+import type { StateEffectType } from "@codemirror/state";
+import { oneDark } from "@codemirror/theme-one-dark";
+import { perc } from "./perc-language";
+import { indentWithTab } from "@codemirror/commands";
+import { indentUnit } from "@codemirror/language";
+import { autocompletion } from "@codemirror/autocomplete";
 
-// Configure Ace path for resources if needed - often required for workers
-ace.config.set('basePath', '/node_modules/ace-builds/src-noconflict');
+type HighlightRange = { from: number, to: number };
+
+const debugEffect = StateEffect.define<HighlightRange | null>();
+const errorEffect = StateEffect.define<HighlightRange | null>();
+const varDefEffect = StateEffect.define<HighlightRange | null>();
+
+const createHighlightField = (effect: StateEffectType<HighlightRange | null>, className: string) => {
+    return StateField.define<DecorationSet>({
+        create() { return Decoration.none; },
+        update(highlights, tr) {
+            highlights = highlights.map(tr.changes);
+            for (let e of tr.effects) {
+                if (e.is(effect)) {
+                    if (e.value === null) {
+                        highlights = Decoration.none;
+                    } else if (e.value) {
+                        highlights = Decoration.set([
+                            Decoration.mark({ class: className }).range(e.value.from, e.value.to)
+                        ]);
+                    }
+                }
+            }
+            return highlights;
+        },
+        provide: f => EditorView.decorations.from(f)
+    });
+};
+
+const debugHighlightField = createHighlightField(debugEffect, "eval-marker");
+const errorHighlightField = createHighlightField(errorEffect, "error-marker");
+const varDefHighlightField = createHighlightField(varDefEffect, "variable-def-highlight");
 
 /**
- * Editor class wrapping Ace Editor functionality
+ * Editor class wrapping CodeMirror 6 Editor functionality
  */
 export class Editor {
-    private editor: ace.Ace.Editor;
-    private currentMarkerId: number | null = null;
-    private currentErrorMarkerId: number | null = null;
-    private currentVarDefMarkerId: number | null = null;
+    private view: EditorView;
+    private container: HTMLElement;
+    private variableProvider: () => string[] = () => [];
+    private builtins: string[] = ["print", "println"];
+    private readOnly = false;
+    private fontSize = 14;
+    private theme: 'dark' | 'light' = 'dark';
+    private wordWrap = true;
 
     constructor(containerId: string) {
-        this.editor = ace.edit(containerId);
-        this.setup();
-    }
+        const container = document.getElementById(containerId);
+        if (!container) throw new Error(`Container #${containerId} not found`);
+        this.container = container;
 
-    private setup() {
-        // Basic configuration
-        this.editor.setTheme("ace/theme/perc-dark");
-        this.editor.session.setMode(new PercMode() as any);
-
-        // Options as per requirements
-        this.editor.setOptions({
-            enableBasicAutocompletion: true,
-            // Enable live autocompletion for a better user experience while typing
-            enableLiveAutocompletion: true,
-            enableSnippets: false,
-            fontSize: "14px",
-            showPrintMargin: false,
-            wrap: true,
-            tabSize: 4,
-            useSoftTabs: true
+        this.view = new EditorView({
+            state: this.createState(""),
+            parent: container
         });
-
-        // Basic keyword completion setup from PerC grammar
-        const staticWordCompleter = {
-            getCompletions: (_editor: ace.Ace.Editor, _session: ace.Ace.EditSession, _pos: ace.Ace.Point, prefix: string, callback: any) => {
-                // Return early if prefix starts with a number, to avoid annoying suggestions like f32 when typing 3
-                if (/^\d/.test(prefix)) {
-                    callback(null, []);
-                    return;
-                }
-
-                const keywords = [
-                    "init", "change", "function", "if", "then", "else", "while", "for", "in",
-                    "return", "break", "continue", "new", "true", "false", "nil", "not",
-                    "is", "and", "or", "clone", "typeof"
-                ];
-                const builtins = ["print", "println"]; // Common built-in functions
-
-                const completions = [
-                    ...keywords.map(word => ({ caption: word, value: word, meta: "keyword" })),
-                    ...builtins.map(word => ({ caption: word, value: word, meta: "builtin" }))
-                ];
-
-                callback(null, completions);
-            }
-        };
-
-        const langTools = (ace as any).require("ace/ext/language_tools");
-        this.editor.completers = [
-            langTools.textCompleter, // Suggestions from current document
-            langTools.keyWordCompleter, // Suggestions from mode keywords
-            staticWordCompleter // Custom PerC keywords
-        ];
     }
 
-    private variableProvider: () => string[] = () => [];
+    private createState(content: string) {
+        return EditorState.create({
+            doc: content,
+            extensions: [
+                basicSetup,
+                keymap.of([indentWithTab]),
+                indentUnit.of("    "),
+                autocompletion({ activateOnTyping: true }),
+                perc(this.builtins, this.variableProvider),
+                this.theme === 'dark' ? oneDark : [],
+                EditorState.readOnly.of(this.readOnly),
+                this.wordWrap ? EditorView.lineWrapping : [],
+                debugHighlightField,
+                errorHighlightField,
+                varDefHighlightField,
+                EditorView.theme({
+                    "&": {
+                        fontSize: `${this.fontSize}px`,
+                        height: "100%"
+                    },
+                    ".cm-scroller": { overflow: "auto" }
+                })
+            ]
+        });
+    }
+
+    private updateExtensions() {
+        this.view.setState(this.createState(this.view.state.doc.toString()));
+    }
 
     public setVariableProvider(provider: () => string[]) {
         this.variableProvider = provider;
+        this.updateExtensions();
     }
 
     public setBuiltins(builtins: string[]) {
-        // Update syntax highlighting
-        this.editor.session.setMode(new PercMode(builtins) as any);
-
-        // Update autocompletion
-        const staticWordCompleter = {
-            getCompletions: (_editor: ace.Ace.Editor, _session: ace.Ace.EditSession, _pos: ace.Ace.Point, prefix: string, callback: any) => {
-                if (/^\d/.test(prefix)) {
-                    callback(null, []);
-                    return;
-                }
-
-                const keywords = [
-                    "init", "change", "function", "if", "then", "else", "while", "for", "in",
-                    "return", "break", "continue", "new", "true", "false", "nil", "not",
-                    "is", "and", "or", "clone", "typeof"
-                ];
-
-                const generatedVars = new Set<string>();
-
-                // 1. Scan editor text for 'init varName'
-                const content = _session.getValue();
-                const initRegex = /\binit\s+([a-zA-Z_]\w*)/g;
-                let match;
-                while ((match = initRegex.exec(content)) !== null) {
-                    generatedVars.add(match[1]);
-                }
-
-                // 2. Function parameters? (Simplified: function foo(a,b))
-                // Note: regex-based parsing is flaky but better than nothing for "static" analysis in editor
-
-                // 3. VM provided variables (Globals from REPL)
-                const vmVars = this.variableProvider();
-                vmVars.forEach(v => generatedVars.add(v));
-
-                // 4. Remove keywords from vars to avoid duplicates (though type is different)
-                keywords.forEach(k => generatedVars.delete(k));
-
-                const completions = [
-                    ...keywords.map(word => ({ caption: word, value: word, meta: "keyword", score: 1000 })),
-                    ...builtins.map(word => ({ caption: word, value: word, meta: "builtin", score: 900 })),
-                    ...Array.from(generatedVars).map(word => ({ caption: word, value: word, meta: "variable", score: 2000 })) // High score for locals
-                ];
-
-                callback(null, completions);
-            }
-        };
-
-        const langTools = (ace as any).require("ace/ext/language_tools");
-        this.editor.completers = [
-            // langTools.textCompleter, // Disable generic text completer to reduce noise? User wants specific suggestion.
-            // If we keep textCompleter, it might double suggest.
-            // But textCompleter is useful for strings/comments words.
-            // Let's keep it but maybe our variable completer (staticWordCompleter) having high score wins?
-            langTools.textCompleter,
-            langTools.keyWordCompleter,
-            staticWordCompleter
-        ];
+        this.builtins = builtins;
+        this.updateExtensions();
     }
 
     public setValue(content: string) {
-        this.editor.setValue(content, -1); // -1 moves cursor to start
+        this.view.dispatch({
+            changes: { from: 0, to: this.view.state.doc.length, insert: content },
+            selection: { anchor: 0 }
+        });
     }
 
     public getValue(): string {
-        return this.editor.getValue();
+        return this.view.state.doc.toString();
     }
 
     public resize() {
-        this.editor.resize();
+        // CodeMirror 6 usually handles resize automatically
     }
 
     public setFontSize(size: number) {
-        this.editor.setFontSize(`${size}px`);
+        this.fontSize = size;
+        this.updateExtensions();
     }
 
     public setTheme(theme: 'dark' | 'light') {
-        this.editor.setTheme(theme === 'dark' ? "ace/theme/perc-dark" : "ace/theme/chrome");
+        this.theme = theme;
+        this.updateExtensions();
     }
 
     public setWordWrap(wrap: boolean) {
-        this.editor.session.setUseWrapMode(wrap);
+        this.wordWrap = wrap;
+        this.updateExtensions();
     }
 
     public setReadOnly(readOnly: boolean) {
-        this.editor.setReadOnly(readOnly);
+        this.readOnly = readOnly;
+        this.updateExtensions();
     }
 
     public highlightAndScroll(loc: { start: number, end: number } | { line: number, column: number }, type: 'error' | 'debug' | 'info' = 'info') {
-        const session = this.editor.session;
-        const doc = session.getDocument();
-        const Range = (ace as any).require("ace/range").Range;
+        let from, to;
+        try {
+            if ('line' in loc) {
+                const line = this.view.state.doc.line(loc.line);
+                from = line.from + loc.column - 1;
+                to = Math.min(from + 1, line.to);
+            } else {
+                from = Math.max(0, loc.start);
+                to = Math.min(loc.end, this.view.state.doc.length);
+            }
 
-        // Determine range and style
-        let range: any;
-        let className = "eval-marker";
-        if (type === 'error') className = "error-marker";
-        else if (type === 'debug') className = "eval-marker";
-        else className = "info-marker";
+            if (from > to) [from, to] = [to, from];
 
-        if ('line' in loc) {
-            // Line/Col based (1-indexed)
-            const row = loc.line - 1;
-            const col = loc.column - 1;
-            range = new Range(row, col, row, col + 1); // Highlight char
-        } else {
-            // Offset based
-            const startPos = doc.indexToPosition(loc.start, 0);
-            const endPos = doc.indexToPosition(loc.end, 0);
-            range = new Range(startPos.row, startPos.column, endPos.row, endPos.column);
+            const effect = type === 'error' ? errorEffect : debugEffect;
+            this.view.dispatch({
+                effects: [
+                    effect.of({ from, to }),
+                    EditorView.scrollIntoView(from, { y: 'center' })
+                ]
+            });
+        } catch (e) {
+            console.error("Failed to highlight:", e, loc);
         }
-
-        // Clear existing markers of same type?
-        if (type === 'error') this.clearErrorHighlight();
-        else if (type === 'debug') this.clearHighlight();
-
-        const markerId = session.addMarker(range, className, "text", true);
-
-        if (type === 'error') this.currentErrorMarkerId = markerId;
-        else if (type === 'debug') this.currentMarkerId = markerId;
-
-        this.editor.scrollToLine(range.start.row, true, true, () => { });
     }
 
     public highlightRange(start: number, end: number) {
@@ -213,67 +175,43 @@ export class Editor {
     }
 
     public clearHighlight() {
-        if (this.currentMarkerId !== null) {
-            this.editor.session.removeMarker(this.currentMarkerId);
-            this.currentMarkerId = null;
-        }
+        this.view.dispatch({ effects: debugEffect.of(null) });
     }
 
     public clearErrorHighlight() {
-        if (this.currentErrorMarkerId !== null) {
-            this.editor.session.removeMarker(this.currentErrorMarkerId);
-            this.currentErrorMarkerId = null;
-        }
+        this.view.dispatch({ effects: errorEffect.of(null) });
     }
 
     public enter_run_mode() {
         this.setReadOnly(true);
         this.clearErrorHighlight();
-        this.editor.container.classList.add('running-mode');
+        this.container.classList.add('running-mode');
     }
 
     public enter_debug_mode() {
-        // Debug mode assumes we are already in running mode (read-only)
-        // But we might want to add a specific class for debug visuals if needed
-        this.editor.container.classList.add('debug-mode');
+        this.container.classList.add('debug-mode');
     }
 
     public enter_idle_mode() {
         this.setReadOnly(false);
         this.clearHighlight();
         this.clearErrorHighlight();
-        this.editor.container.classList.remove('running-mode');
-        this.editor.container.classList.remove('debug-mode');
+        this.container.classList.remove('running-mode');
+        this.container.classList.remove('debug-mode');
     }
 
     public highlightVariableDefinition(start: number, end: number) {
-        // Remove existing variable highlight if any
-        if (this.currentVarDefMarkerId !== null) {
-            this.editor.session.removeMarker(this.currentVarDefMarkerId);
-            this.currentVarDefMarkerId = null;
-        }
-
-        const session = this.editor.session;
-        const doc = session.getDocument();
-        const startPos = doc.indexToPosition(start, 0);
-        const endPos = doc.indexToPosition(end, 0);
-
-        // Scroll to line
-        this.editor.scrollToLine(startPos.row, true, true, () => { });
-
-        // Add marker
-        // @ts-ignore
-        const Range = ace.require('ace/range').Range;
-        const range = new Range(startPos.row, startPos.column, endPos.row, endPos.column);
-
-        // Use 'text' type for background highlight, or we can use specific class in CSS
-        this.currentVarDefMarkerId = session.addMarker(range, "variable-def-highlight", "text", true);
+        const from = Math.max(0, start);
+        const to = Math.min(end, this.view.state.doc.length);
+        this.view.dispatch({
+            effects: [
+                varDefEffect.of({ from, to }),
+                EditorView.scrollIntoView(from, { y: 'center' })
+            ]
+        });
     }
 
     public clearVariableDefinitionHighlight() {
-        if (this.currentVarDefMarkerId !== null) {
-            this.editor.session.removeMarker(this.currentVarDefMarkerId);
-            this.currentVarDefMarkerId = null;
-        }
+        this.view.dispatch({ effects: varDefEffect.of(null) });
     }
 }

@@ -1,9 +1,9 @@
-import peggyLoader from "./vite-peggy-loader"
+import { lezer } from "@lezer/generator/rollup";
 import solidPlugin from 'vite-plugin-solid';
 
 export default {
     plugins: [
-        peggyLoader(),
+        lezer(),
         solidPlugin(),
     ],
     build: {
@@ -13,13 +13,6 @@ export default {
                 main: 'index.html',
                 gui: 'gui.html'
             },
-            output: {
-                manualChunks: {
-                    'ace-builds': ['ace-builds'],
-                    'jquery': ['jquery'],
-                    'snabbdom': ['snabbdom']
-                }
-            }
         }
     }
 }

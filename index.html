@@ -34,14 +34,7 @@
                 </div>
                 <span>Source Code</span>
               </div>
-              <div class="pane-controls">
-                <div class="zoom-control">
-                  <button class="zoom-btn zoom-out" data-target="editor">-</button>
-                  <input type="range" class="zoom-slider" min="4" max="42" value="14" data-target="editor">
-                  <button class="zoom-btn zoom-in" data-target="editor">+</button>
-                  <button class="zoom-reset" data-target="editor">100%</button>
-                </div>
-              </div>
+              <div class="pane-controls" id="editor-zoom-root"></div>
             </div>
             <div id="editor" class="pane-content"></div>
           </div>
@@ -56,14 +49,7 @@
                 </div>
                 <span>Debugger</span>
               </div>
-              <div class="pane-controls">
-                <div class="zoom-control">
-                  <button class="zoom-btn zoom-out" data-target="debugger">-</button>
-                  <input type="range" class="zoom-slider" min="4" max="42" value="14" data-target="debugger">
-                  <button class="zoom-btn zoom-in" data-target="debugger">+</button>
-                  <button class="zoom-reset" data-target="debugger">100%</button>
-                </div>
-              </div>
+              <div class="pane-controls" id="debugger-zoom-root"></div>
             </div>
             <div id="debugger-content" class="pane-content"></div>
           </div>
@@ -80,12 +66,7 @@
               <span>Console / REPL</span>
             </div>
             <div class="pane-controls">
-              <div class="zoom-control">
-                <button class="zoom-btn zoom-out" data-target="console">-</button>
-                <input type="range" class="zoom-slider" min="4" max="42" value="14" data-target="console">
-                <button class="zoom-btn zoom-in" data-target="console">+</button>
-                <button class="zoom-reset" data-target="console">100%</button>
-              </div>
+              <div id="console-zoom-root"></div>
               <button class="icon-btn" id="console-clear" title="Clear Console">⊘</button>
             </div>
           </div>

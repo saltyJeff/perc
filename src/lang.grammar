@@ -1,0 +1,241 @@
+@top SourceFile { (Statement | ";")* }
+
+@precedence {
+  member
+  call
+  power @right
+  prefix @right
+  mult @left
+  add @left
+  shift @left
+  compare @left
+  bitAnd @left
+  bitXor @left
+  bitOr @left
+  logicAnd @left
+  logicOr @left
+  assign @right
+  statement
+}
+
+Statement {
+  FunctionDeclaration |
+  VarInit |
+  VarChange |
+  ReturnStatement |
+  BreakStatement |
+  ContinueStatement |
+  DebuggerStatement |
+  IfStatement |
+  WhileStatement |
+  ForInStatement |
+  ExpressionStatement |
+  Block
+}
+
+FunctionDeclaration { 
+  kw<"function"> Identifier ParameterList Block 
+}
+
+ParameterList { 
+  "(" (Identifier ("," Identifier)*)? ")" 
+}
+
+Block { 
+  "{" (Statement | ";")* "}" 
+}
+
+VarInit { 
+  kw<"init"> Identifier (AssignOp | CatchAssignOp) Expression
+}
+
+VarChange { 
+  kw<"change"> (MemberExpression | Identifier) (AssignOp | CatchAssignOp) Expression
+}
+
+IfStatement { 
+  kw<"if"> "(" Expression ")" kw<"then"> Block (kw<"else"> (Block | IfStatement))? 
+}
+
+WhileStatement { 
+  kw<"while"> "(" Expression ")" kw<"then"> Block 
+}
+
+ForInStatement { 
+  kw<"for"> "(" kw<"init"> Identifier kw<"in"> Expression ")" kw<"then"> Block 
+}
+
+ReturnStatement { 
+  kw<"return"> !statement Expression | 
+  kw<"return"> 
+}
+
+BreakStatement { kw<"break"> }
+ContinueStatement { kw<"continue"> }
+DebuggerStatement { kw<"debugger"> }
+
+ExpressionStatement { 
+  Expression !statement
+}
+
+Expression {
+  BinaryExpression |
+  UnaryExpression |
+  PostfixExpression
+}
+
+UnaryExpression {
+  !prefix (NotOp | LogicNotOp | MinusOp | PlusOp) Expression
+}
+
+BinaryExpression {
+  Expression !power PowerOp Expression |
+  Expression !mult (MultOp | DivOp | ModOp) Expression |
+  Expression !add (PlusOp | MinusOp) Expression |
+  Expression !shift (ShiftLeftOp | ShiftRightOp) Expression |
+  Expression !compare (EqOp | NeqOp | LtOp | GtOp | LteOp | GteOp | CompareOp | IsOp) Expression |
+  Expression !bitAnd BitAndOp Expression |
+  Expression !bitXor BitXorOp Expression |
+  Expression !bitOr BitOrOp Expression |
+  Expression !logicAnd (LogicAndOp | AndOp) Expression |
+  Expression !logicOr (LogicOrOp | OrOp) Expression
+}
+
+PostfixExpression {
+  PrimaryExpression |
+  MemberExpression |
+  CallExpression
+}
+
+MemberExpression {
+  PostfixExpression !member "." Identifier |
+  PostfixExpression !member "[" Expression "]"
+}
+
+CallExpression {
+  PostfixExpression !call ArgumentList
+}
+
+PrimaryExpression {
+  Identifier |
+  Literal |
+  ParenthesizedExpression |
+  FunctionLiteral |
+  InstantiationExpression
+}
+
+ParenthesizedExpression { "(" Expression ")" }
+
+FunctionLiteral { 
+  kw<"function"> ParameterList Block 
+}
+
+InstantiationExpression { 
+  kw<"new"> (ArrayLiteral | MapLiteral | TupleLiteral) 
+}
+
+ArrayLiteral { 
+  "[" (Expression ("," Expression)*)? ","? "]" 
+}
+
+MapLiteral { 
+  "{" (Pair ("," Pair)*)? ","? "}" 
+}
+
+Pair { 
+  Expression ":" Expression 
+}
+
+TupleLiteral { 
+  "(|" (Expression ("," Expression)*)? ","? "|)" 
+}
+
+Literal {
+  IntegerLiteral |
+  FloatLiteral |
+  StringLiteral |
+  BooleanLiteral |
+  NilLiteral
+}
+
+ArgumentList {
+  "(" (Expression ("," Expression)*)? ")"
+}
+
+BooleanLiteral { kw<"true"> | kw<"false"> }
+NilLiteral { kw<"nil"> }
+
+kw<term> { @specialize[@name={term}]<Identifier, term> }
+
+IsOp { kw<"is"> }
+AndOp { kw<"and"> }
+OrOp { kw<"or"> }
+NotOp { kw<"not"> }
+
+@tokens {
+  identifierChar { @asciiLetter | "_" }
+  word { identifierChar (identifierChar | @digit)* }
+
+  Identifier { word }
+
+  @precedence { Identifier }
+
+  @precedence { BlockComment, LineComment, DivOp }
+  @precedence { FloatLiteral, IntegerLiteral, Identifier, "." }
+
+  IntegerLiteral {
+    "0x" (@digit | $[a-fA-F] | "_")+ |
+    "0b" $[01_]+ |
+    "0o" $[0-7_]+ |
+    @digit (@digit | "_")*
+  }
+
+  FloatLiteral {
+    (@digit ("_" | @digit)* "." (@digit ("_" | @digit)*)? | "." @digit ("_" | @digit)*) (("e" | "E") ("+" | "-")? @digit ("_" | @digit)*)? |
+    @digit (@digit | "_")* ("e" | "E") ("+" | "-")? @digit ("_" | @digit)*
+  }
+
+  StringLiteral { '"' (![\\"] | "\\" _)* '"' }
+
+  LineComment { "//" ![\n]* }
+  BlockComment { "/*" (![*] | "*" ![/])* "*/" }
+
+  space { @whitespace+ }
+
+  "(" ")" "[" "]" "{" "}"
+  "," ";" ":" "." 
+  
+  PlusOp { "+" } 
+  MinusOp { "-" }
+  MultOp { "*" }
+  DivOp { "/" }
+  ModOp { "%" }
+  PowerOp { "**" }
+  
+  EqOp { "==" }
+  NeqOp { "!=" }
+  LtOp { "<" }
+  GtOp { ">" }
+  LteOp { "<=" }
+  GteOp { ">=" }
+  CompareOp { "<=>" }
+  
+  BitAndOp { "&" }
+  BitOrOp { "|" }
+  BitXorOp { "^" }
+  ShiftLeftOp { "<<" }
+  ShiftRightOp { ">>" }
+  
+  LogicAndOp { "&&" }
+  LogicOrOp { "||" }
+  LogicNotOp { "!" }
+  
+  AssignOp { "=" }
+  CatchAssignOp { "=?" }
+  
+  "(|" "|)"
+}
+
+@skip { space | LineComment | BlockComment }
+
+@external propSource highlighting from "./highlight"

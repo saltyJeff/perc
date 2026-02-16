@@ -6,7 +6,7 @@ import { perc_number, perc_string, perc_list, perc_tuple, perc_err, perc_bool, p
 // we might need to mock it or use a simplified approach. 
 // However, the existing tests seem to use `import { parser } from '../perc-grammar.pegjs'` which relies on the vite plugin.
 // Let's assume we can run this via `npx vitest` which uses vite.
-import parser from '../perc-grammar.pegjs';
+import * as parser from "../ast-adapter";
 
 describe('Types Update', () => {
     let vm: VM;

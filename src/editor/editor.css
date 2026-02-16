@@ -11,24 +11,18 @@
 
 /* Execution Highlight Marker */
 .eval-marker {
-    position: absolute;
     background-color: rgba(255, 95, 86, 0.3);
     border-bottom: 2px solid #ff5f56;
-    z-index: 20;
 }
 
 /* Variable Definition Highlight */
 .variable-def-highlight {
-    position: absolute;
-    background-color: rgba(0, 0, 255, 0.2);
-    border-bottom: 2px solid blue;
-    z-index: 20;
+    background-color: rgba(0, 50, 255, 0.2);
+    border-bottom: 2px solid #4a4aff;
 }
 
 /* Error Highlight Marker */
 .error-marker {
-    position: absolute;
-    background-color: rgba(255, 0, 0, 0.4) !important;
-    border-bottom: 2px solid red !important;
-    z-index: 20;
+    background-color: rgba(255, 0, 0, 0.2);
+    border-bottom: 2px solid red;
 }

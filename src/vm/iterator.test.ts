@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { VM } from './index';
 // @ts-ignore
-import parser from '../perc-grammar.pegjs';
+import * as parser from "../ast-adapter";
 import { perc_string } from './perc_types';
 
 describe('Iterator Features', () => {
