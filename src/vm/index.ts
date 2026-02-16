@@ -630,8 +630,7 @@ export class VM {
             case '*': return left.mul(right);
             case '/': return left.div(right);
             case '%': return left.mod(right);
-            case '==':
-                return left.eq(right); // for ==
+            case '==': return left.eq(right);
             case 'is': return new perc_bool(left === right);
             case '!=': return left.ne(right);
             case '<': return left.lt(right);
