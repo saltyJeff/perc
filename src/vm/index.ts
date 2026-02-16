@@ -120,7 +120,6 @@ export class VM {
         } catch (e: any) {
             const loc: [number, number] | null = e.location ? [e.location.start.offset, e.location.end.offset] : null;
             console.error(e.message, loc);
-            this.events.on_error?.(e.message, loc);
             throw e;
         }
     }
@@ -170,7 +169,6 @@ export class VM {
         } catch (e: any) {
             const loc: [number, number] | null = e.location ? [e.location.start.offset, e.location.end.offset] : null;
             console.error(e.message, loc);
-            this.events.on_error?.(e.message, loc);
             throw e;
         }
     }

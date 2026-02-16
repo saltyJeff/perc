@@ -21,13 +21,23 @@ export class Compiler {
         this.scopes.pop();
     }
 
+    private getLineCol(offset: number) {
+        const lines = this.source.slice(0, offset).split("\n");
+        return {
+            line: lines.length,
+            column: lines[lines.length - 1].length + 1
+        };
+    }
+
     private declare_var(name: string, location: { start: number, end: number }) {
         const current = this.scopes[this.scopes.length - 1];
         if (current.has(name)) {
+            const startLoc = this.getLineCol(location.start);
+            const endLoc = this.getLineCol(location.end);
             const err: any = new Error(`Variable '${name}' already declared in this scope`);
             err.location = {
-                start: { offset: location.start, line: 0, column: 0 },
-                end: { offset: location.end, line: 0, column: 0 }
+                start: { offset: location.start, line: startLoc.line, column: startLoc.column },
+                end: { offset: location.end, line: endLoc.line, column: endLoc.column }
             };
             throw err;
         }
@@ -501,7 +511,13 @@ export class Compiler {
                 break;
 
             case "⚠":
-                throw new Error("Syntax error");
+                const errPos = this.getLineCol(start);
+                const syntaxErr: any = new Error(`Unexpected token or expression`);
+                syntaxErr.location = {
+                    start: { offset: start, line: errPos.line, column: errPos.column },
+                    end: { offset: end, line: errPos.line, column: errPos.column } // Best guess for end is start for single point error
+                };
+                throw syntaxErr;
 
             default:
                 break;

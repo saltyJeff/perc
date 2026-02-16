@@ -1,7 +1,7 @@
 import { basicSetup, EditorView } from "codemirror";
 import { keymap, Decoration } from "@codemirror/view";
 import type { DecorationSet } from "@codemirror/view";
-import { EditorState, StateEffect, StateField } from "@codemirror/state";
+import { EditorState, StateEffect, StateField, Compartment } from "@codemirror/state";
 import type { StateEffectType } from "@codemirror/state";
 import { githubDark } from "@fsegurai/codemirror-theme-github-dark";
 import { githubLight } from "@fsegurai/codemirror-theme-github-light";
@@ -54,6 +54,7 @@ export class Editor {
     private fontSize = 14;
     private theme: 'dark' | 'light' = 'dark';
     private wordWrap = true;
+    private fontSizeCompartment = new Compartment();
 
     constructor(containerId: string) {
         const container = document.getElementById(containerId);
@@ -81,13 +82,13 @@ export class Editor {
                 debugHighlightField,
                 errorHighlightField,
                 varDefHighlightField,
-                EditorView.theme({
-                    "&": {
-                        fontSize: `${this.fontSize}px`,
-                        height: "100%"
-                    },
-                    ".cm-scroller": { overflow: "auto" }
-                })
+                this.fontSizeCompartment.of(EditorView.theme({
+                    "&": { height: "100%" },
+                    ".cm-scroller": { overflow: "auto" },
+                    ".cm-content, .cm-gutters": { minHeight: "100%" },
+                    ".cm-content": { fontSize: `${this.fontSize}px` },
+                    ".cm-gutters": { fontSize: `${this.fontSize}px` }
+                })),
             ]
         });
     }
@@ -121,8 +122,9 @@ export class Editor {
         // CodeMirror 6 usually handles resize automatically
     }
 
-    public setFontSize(size: number) {
-        this.fontSize = size;
+    public setFontSize(pct: number) {
+        // TODO: update font compartment instead of the whole thing.
+        this.fontSize = Math.round(pct * 14 / 100);
         this.updateExtensions();
     }
 

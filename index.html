@@ -9,76 +9,7 @@
 </head>
 
 <body>
-  <div id="app">
-    <div id="menubar">
-      <div class="logo">PerC IDE</div>
-      <div class="menu-item" id="btn-run"><span style="color: green;">▶</span>Run</div>
-      <div class="menu-item" id="btn-build">🔨 Build</div>
-      <div class="menu-item" id="btn-stop" style="display: none;">🛑 Stop</div>
-      <div class="menu-item" id="btn-step" style="display: none;">⏯ Step</div>
-      <div class="menu-item" id="btn-continue" style="display: none;">⏩ Continue</div>
-      <div class="toolbar-separator"></div>
-      <div class="menu-item" id="btn-theme">Theme: Dark</div>
-      <div class="menu-item" id="btn-wrap">Wrap: Off</div>
-    </div>
-    <div id="main-layout">
-      <div id="vertical-container">
-        <div id="top-container">
-          <div id="editor-pane" class="pane">
-            <div class="pane-header">
-              <div class="pane-title-area">
-                <div class="pane-toggle-group">
-                  <button class="pane-btn btn-min" title="Minimize" data-action="minimize"></button>
-                  <button class="pane-btn btn-restore" title="Restore" data-action="restore"></button>
-                  <button class="pane-btn btn-max" title="Maximize" data-action="maximize"></button>
-                </div>
-                <span>Source Code</span>
-              </div>
-              <div class="pane-controls" id="editor-zoom-root"></div>
-            </div>
-            <div id="editor" class="pane-content"></div>
-          </div>
-          <div class="splitter horizontal" id="v-split"></div>
-          <div id="debugger-pane" class="pane">
-            <div class="pane-header">
-              <div class="pane-title-area">
-                <div class="pane-toggle-group">
-                  <button class="pane-btn btn-min" title="Minimize" data-action="minimize"></button>
-                  <button class="pane-btn btn-restore" title="Restore" data-action="restore"></button>
-                  <button class="pane-btn btn-max" title="Maximize" data-action="maximize"></button>
-                </div>
-                <span>Debugger</span>
-              </div>
-              <div class="pane-controls" id="debugger-zoom-root"></div>
-            </div>
-            <div id="debugger-content" class="pane-content"></div>
-          </div>
-        </div>
-        <div class="splitter vertical" id="h-split"></div>
-        <div id="console-pane" class="pane">
-          <div class="pane-header">
-            <div class="pane-title-area">
-              <div class="pane-toggle-group">
-                <button class="pane-btn btn-min" title="Minimize" data-action="minimize"></button>
-                <button class="pane-btn btn-restore" title="Restore" data-action="restore"></button>
-                <button class="pane-btn btn-max" title="Maximize" data-action="maximize"></button>
-              </div>
-              <span>Console / REPL</span>
-            </div>
-            <div class="pane-controls">
-              <div id="console-zoom-root"></div>
-              <button class="icon-btn" id="console-clear" title="Clear Console">⊘</button>
-            </div>
-          </div>
-          <div id="console-output" class="pane-content"></div>
-          <div class="console-input-container" style="padding: 5px; border-top: 1px solid var(--border-color);">
-            <span style="color: var(--accent-color);">></span>
-            <input type="text" id="repl-input" />
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+  <div id="app"></div>
   <script type="module" src="/src/index.tsx"></script>
 </body>
 

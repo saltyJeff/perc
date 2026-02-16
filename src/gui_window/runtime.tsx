@@ -190,7 +190,7 @@ function useResolvedStyle(props: { fill?: Color, stroke?: Color, strokeWidth?: n
 
     return { fill, stroke, strokeWidth };
 }
-
+type StyleProps = { fill?: Color, stroke?: Color, strokeWidth?: number }
 const ElementRenderer = (props: { element: RenderElement }) => {
     return (
         <Switch>
@@ -198,41 +198,41 @@ const ElementRenderer = (props: { element: RenderElement }) => {
                 <GroupComponent group={props.element as RenderGroup} />
             </Match>
             <Match when={props.element.type === 'rect'}>
-                <RectComponent rect={props.element as Rect & { fill?: Color, stroke?: Color, strokeWidth?: number }} />
+                <RectComponent rect={props.element as Rect & StyleProps} />
             </Match>
             <Match when={props.element.type === 'circle'}>
-                <CircleComponent circle={props.element as Circle & { fill?: Color, stroke?: Color, strokeWidth?: number }} />
+                <CircleComponent circle={props.element as Circle & StyleProps} />
             </Match>
             <Match when={props.element.type === 'line'}>
-                <LineComponent line={props.element as Line & { fill?: Color, stroke?: Color, strokeWidth?: number }} />
+                <LineComponent line={props.element as Line & StyleProps} />
             </Match>
             <Match when={props.element.type === 'text'}>
-                <TextComponent text={props.element as Text & { fill?: Color, stroke?: Color, strokeWidth?: number }} />
+                <TextComponent text={props.element as Text & StyleProps} />
             </Match>
             <Match when={props.element.type === 'image'}>
-                <ImageComponent image={props.element as Image & { fill?: Color, stroke?: Color, strokeWidth?: number }} />
+                <ImageComponent image={props.element as Image & StyleProps} />
             </Match>
             <Match when={props.element.type === 'sprite'}>
-                <SpriteComponent sprite={props.element as Sprite & { fill?: Color, stroke?: Color, strokeWidth?: number }} />
+                <SpriteComponent sprite={props.element as Sprite & StyleProps} />
             </Match>
             <Match when={props.element.type === 'polygon'}>
                 <PolygonComponent polygon={props.element as any} />
             </Match>
 
             <Match when={props.element.type === 'button'}>
-                <ButtonComponent button={props.element as Button & { fill?: Color, stroke?: Color, strokeWidth?: number }} />
+                <ButtonComponent button={props.element as Button & StyleProps} />
             </Match>
             <Match when={props.element.type === 'slider'}>
-                <SliderComponent slider={props.element as Slider & { fill?: Color, stroke?: Color, strokeWidth?: number }} />
+                <SliderComponent slider={props.element as Slider & StyleProps} />
             </Match>
             <Match when={props.element.type === 'checkbox'}>
-                <CheckboxComponent checkbox={props.element as Checkbox & { fill?: Color, stroke?: Color, strokeWidth?: number }} />
+                <CheckboxComponent checkbox={props.element as Checkbox & StyleProps} />
             </Match>
             <Match when={props.element.type === 'radio'}>
-                <RadioComponent radio={props.element as Radio & { fill?: Color, stroke?: Color, strokeWidth?: number }} />
+                <RadioComponent radio={props.element as Radio & StyleProps} />
             </Match>
             <Match when={props.element.type === 'textbox'}>
-                <TextboxComponent textbox={props.element as Textbox & { fill?: Color, stroke?: Color, strokeWidth?: number }} />
+                <TextboxComponent textbox={props.element as Textbox & StyleProps} />
             </Match>
         </Switch>
     );

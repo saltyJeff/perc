@@ -69,7 +69,7 @@ html {
 }
 
 /* Header / Menu Bar */
-#menubar {
+.menu-bar {
   height: 35px;
   /* Slightly taller for touch friendliness on projectors */
   background-color: var(--header-bg);
@@ -81,6 +81,30 @@ html {
   flex-shrink: 0;
   user-select: none;
   font-size: 14px;
+}
+
+.menu-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--fg-color);
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.menu-btn:hover {
+  background-color: var(--border-color);
+  border-color: var(--border-color);
+}
+
+.menu-btn:active {
+  background-color: var(--accent-color);
+  color: white;
 }
 
 #m.perc-num .type {
@@ -447,3 +471,38 @@ body.light-theme .zoom-control {
 
 /* Debugger Tables & Folding */
 /* Moved to debugger/debugger.css */
+
+.menu-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.menu-spacer {
+  flex: 1;
+}
+
+.menu-options {
+  display: flex;
+  gap: 10px;
+}
+
+.menu-btn.run-btn span {
+  color: #4EC9B0;
+  margin-right: 4px;
+}
+
+.menu-btn.stop-btn {
+  color: #f44336;
+}
+
+.menu-btn span {
+  font-size: 1.1em;
+  line-height: 1;
+}
+
+.menu-bar .logo {
+  font-weight: bold;
+  margin-right: 20px;
+  font-size: 1.1em;
+  color: var(--accent-color);
+}
