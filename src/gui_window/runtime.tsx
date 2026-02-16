@@ -557,6 +557,13 @@ const RadioComponent = (props: { radio: Radio & { fill?: Color, stroke?: Color, 
             }}
             onChange={(e) => {
                 if (e.currentTarget.checked) {
+                    // Clear other radio buttons in the same group in inputState
+                    const prefix = `rad_${props.radio.group}_`;
+                    for (const key in inputState) {
+                        if (key.startsWith(prefix) && key.endsWith("_val")) {
+                            inputState[key] = false;
+                        }
+                    }
                     inputState[props.radio.id + "_val"] = true;
                     syncInput({ type: "gui_event", id: props.radio.id });
                 }
