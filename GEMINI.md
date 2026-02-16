@@ -23,7 +23,7 @@
 
 
 ## Architecture
-- PEGGY is the parser generator. see `src/perc-grammar.pegjs` for reference
+- Lezer is the parser generator. see `src/lang.grammar` for reference
 - vite is the build tool. Run `npm run dev` for dev server, `npm run build` for build.
   - the build is much stricter than the dev server, so be sure to run `npm run build` before submitting code.
 - currently we use JQuery, but we're trying to migrate to solidjs
@@ -45,7 +45,7 @@
     - highlighting keywords and other language elements
     - tab preservation
     - smart completion should not be available, only basic autocompletion based on keywords and previously typed words.
-    - the editor uses ACE, and the source of truth is the peggy grammar
+    - the editor uses ACE, and the source of truth is the Lezer grammar
 - the code editor holds all of the code. multiple files are not supported.
 - menubar options for the editor include
     - font size

@@ -13,7 +13,6 @@
     "@lezer/generator": "^1.8.0",
     "@types/jquery": "^3.5.33",
     "jsdom": "^28.1.0",
-    "peggy": "^5.0.6",
     "typescript": "~5.9.3",
     "vite": "^7.3.1",
     "vite-plugin-solid": "^2.11.10",

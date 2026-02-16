@@ -1,11 +1,7 @@
 import { VM } from "./index.ts";
 import { perc_string, perc_nil } from "./perc_types.ts";
 import { expect, test, describe } from "vitest";
-import * as peggy from "peggy";
-import fs from "fs";
-
-const grammar = fs.readFileSync("./src/perc-grammar.pegjs", "utf-8");
-const parser = peggy.generate(grammar);
+import { parser } from "../lang.grammar";
 
 describe("Async Input", () => {
     test("Input pauses execution and resumes with value", () => {
@@ -18,7 +14,7 @@ describe("Async Input", () => {
         let output = "";
         let inputPrompt = "";
 
-        // Mock print/input since they are no longer default
+        // Mock print/input
         vm.register_foreign('print', (...args) => {
             output += args.map(a => a.to_string()).join(' ');
             return new perc_nil();

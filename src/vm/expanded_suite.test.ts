@@ -1,12 +1,7 @@
-
 import { describe, it, expect } from 'vitest';
 import { VM } from './index';
-import * as peggy from "peggy";
-import fs from "fs";
-import { perc_list, perc_map, perc_number, perc_tuple } from './perc_types';
-
-const grammar = fs.readFileSync("./src/perc-grammar.pegjs", "utf-8");
-const parser = peggy.generate(grammar);
+import { parser } from '../lang.grammar';
+import { perc_list, perc_map, perc_tuple } from './perc_types';
 
 describe('Expanded Suite', () => {
     it('should error on double initialization at compile time', () => {
@@ -70,7 +65,6 @@ describe('Expanded Suite', () => {
 
         const scope = vm.get_current_scope_values();
         const j = scope['j'].value;
-        // Currently correctly implemented as perc_list in VM
         expect(j).toBeInstanceOf(perc_tuple);
         const tuple = j as perc_tuple;
         expect(tuple.elements.length).toBe(3);
@@ -112,6 +106,7 @@ describe('Expanded Suite', () => {
         expect(global_scope.lookup('x')?.to_string()).toBe("10");
         expect(global_scope.lookup('y')?.to_string()).toBe("15");
     });
+
     it('should leave expression result on stack for REPL', () => {
         const vm = new VM();
         const code = `1 + 2`;

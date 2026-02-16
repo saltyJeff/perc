@@ -1,12 +1,7 @@
-
 import { VM } from "./index.ts";
 import { perc_bool } from "./perc_types.ts";
 import { expect, test, describe } from "vitest";
-import * as peggy from "peggy";
-import fs from "fs";
-
-const grammar = fs.readFileSync("./src/perc-grammar.pegjs", "utf-8");
-const parser = peggy.generate(grammar);
+import { parser } from "../lang.grammar";
 
 function evalCode(code: string) {
     const vm = new VM();
@@ -63,13 +58,6 @@ describe("Equality Operators", () => {
             init res = a == b;
         `);
         expect((primitiveEq as perc_bool).value).toBe(true);
-
-        // Lists currently use reference equality for == (default impl),
-        // unless I implement deep equality. 
-        // User said "== can be overridden per type".
-        // Since perc_list triggers default eq, currently [1] == [1] is false.
-        // Let's verify this current behavior without asserting it MUST be true/false if it depends on future impl.
-        // But for primitives, it MUST be true.
     });
 
     test("Reference equality (is) vs Value equality (==)", () => {

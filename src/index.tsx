@@ -6,7 +6,7 @@ import { VM } from './vm/index';
 import { Compiler } from './vm/compiler';
 import { GUIManager } from './gui_window/manager';
 import { perc_string } from './vm/perc_types';
-import * as parser from './ast-adapter';
+import { parser } from './lang.grammar';
 
 import './style.css';
 import './console/console.css';
@@ -458,8 +458,8 @@ while(true) then {
         try {
             // Use VM to compile so we get the same errors as Run (e.g. Double Init)
             const compiler = new Compiler(Array.from(vm.get_foreign_funcs().keys()));
-            const ast = parser.parse(code);
-            compiler.compile(ast);
+            const tree = parser.parse(code);
+            compiler.compile(code, tree);
             appConsole.status("Build: No errors found.");
         } catch (e: any) {
             // Check for Peggy location or Compiler location

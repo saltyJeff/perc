@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { VM } from './index';
-// @ts-ignore
-import * as parser from "../ast-adapter";
+import { parser } from "../lang.grammar";
 import { perc_string } from './perc_types';
 
 describe('Iterator Features', () => {
@@ -44,7 +43,6 @@ describe('Iterator Features', () => {
                 change res = res + "|"
             }
         `);
-        // a|😀|b|
         expect(getVar('res')?.to_string()).toBe('a|😀|b|');
     });
 
@@ -58,9 +56,6 @@ describe('Iterator Features', () => {
                 // should not run
             }
         `);
-        expect(lastError).toContain("not iterable");
-        // Or 'i32' if literal optimization puts it there, but literal 123 usually i32. 
-        // Let's check loose match.
         expect(lastError).toContain("not iterable");
     });
 });

@@ -113,9 +113,9 @@ export class VM {
 
     execute(source: string, parser: any) {
         try {
-            const ast = parser.parse(source);
+            const tree = parser.parse(source);
             const compiler = new Compiler(Array.from(this.foreign_funcs.keys()));
-            this.code = compiler.compile(ast);
+            this.code = compiler.compile(source, tree);
             this.reset_state();
         } catch (e: any) {
             const loc: [number, number] | null = e.location ? [e.location.start.offset, e.location.end.offset] : null;
@@ -127,7 +127,7 @@ export class VM {
 
     execute_repl(source: string, parser: any) {
         try {
-            const ast = parser.parse(source);
+            const tree = parser.parse(source);
             const compiler = new Compiler(Array.from(this.foreign_funcs.keys()));
             // We need to know if we are in a valid state to extend.
             // Ideally, we append code? No, we just want to run this snippet in the current global context.
@@ -140,7 +140,7 @@ export class VM {
             // 3. Reset IP to 0, stack to empty (or keep stack?), but KEEP global scope.
             // 4. Ideally, we should reuse the global scope from the previous run.
 
-            this.code = compiler.compile_repl(ast);
+            this.code = compiler.compile_repl(source, tree);
 
             // Reset state BUT preserve global scope
             this.ip = 0;

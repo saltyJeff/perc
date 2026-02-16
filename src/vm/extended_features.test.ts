@@ -1,12 +1,7 @@
-
 import { VM } from "./index.ts";
 import { perc_number, perc_string, perc_bool, perc_nil } from "./perc_types.ts";
 import { expect, test, describe } from "vitest";
-import * as peggy from "peggy";
-import fs from "fs";
-
-const grammar = fs.readFileSync("./src/perc-grammar.pegjs", "utf-8");
-const parser = peggy.generate(grammar);
+import { parser } from "../lang.grammar";
 
 describe("Extended Features", () => {
     const run = (code: string) => {
@@ -59,16 +54,12 @@ describe("Extended Features", () => {
 
     test("Integer Overflow (i8)", () => {
         // i8 is signed: -128 to 127
-        // 255 cast to i8 is -1 (11111111)
         expect(run_capture_print("init x = i8(255); print(x)")[0]).toBe("-1");
-
-        // 127 + 1 = -128 in two's complement i8
         expect(run_capture_print("init x = i8(127); change x = x + 1; print(x)")[0]).toBe("-128");
     });
 
     test("Integer Overflow (u8)", () => {
         // u8: 0 to 255
-        // 255 + 1 = 0
         expect(run_capture_print("init x = u8(255); change x = x + 1; print(x)")[0]).toBe("0");
     });
 
@@ -78,15 +69,12 @@ describe("Extended Features", () => {
     });
 
     test("Literal Typing", () => {
-        // Integer literals should be i32 by default
         const res1 = run_capture_print("init x = 123; print(x)");
         expect(res1[0]).toBe("123");
 
-        // Float literals should be f64
         const res2 = run_capture_print("init x = 123.45; print(x)");
         expect(res2[0]).toBe("123.45");
 
-        // Hex literals
         const res3 = run_capture_print("init x = 0xFF; print(x)"); // 255
         expect(res3[0]).toBe("255");
     });

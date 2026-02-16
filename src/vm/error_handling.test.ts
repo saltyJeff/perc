@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { VM } from './index';
-// @ts-ignore
-import parser from '../perc-grammar.pegjs';
+import { parser } from '../lang.grammar';
 import { perc_string, perc_err } from './perc_types';
 
 describe('Error Handling', () => {
@@ -20,7 +19,6 @@ describe('Error Handling', () => {
             vm.execute(code, parser);
         } catch (e: any) {
             console.error("Exec Error:", e.message);
-            if (e.location) console.error("Location:", e.location);
             throw e;
         }
 
@@ -44,15 +42,9 @@ describe('Error Handling', () => {
             init b = !true;
             init n = -1;
         `;
-        try {
-            vm.execute(code, parser);
-        } catch (e: any) {
-            console.error("Exec Error Unary:", e.message);
-            throw e;
-        }
+        vm.execute(code, parser);
         const runner = vm.run();
         while (!runner.next().done);
-        // implicit success if no throw
     });
 
     it('should catch errors with =? operator', () => {

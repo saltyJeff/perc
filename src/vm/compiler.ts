@@ -1,9 +1,11 @@
 import type { opcode } from "./opcodes.ts";
 import { perc_number, perc_string, perc_bool, perc_nil } from "./perc_types.ts";
+import { Tree, TreeCursor } from "@lezer/common";
 
 export class Compiler {
     private opcodes: opcode[] = [];
     private foreign_funcs: Set<string>;
+    private source: string = "";
 
     constructor(foreign_funcs: string[] = []) {
         this.foreign_funcs = new Set(foreign_funcs);
@@ -19,326 +21,504 @@ export class Compiler {
         this.scopes.pop();
     }
 
-    private declare_var(name: string, node: any) {
+    private declare_var(name: string, location: { start: number, end: number }) {
         const current = this.scopes[this.scopes.length - 1];
         if (current.has(name)) {
-            // const loc: [number, number] | null = node.location ? [node.location.start.offset, node.location.end.offset] : null;
-            // Throw error with location property that VM can catch
             const err: any = new Error(`Variable '${name}' already declared in this scope`);
-            err.location = node.location;
+            err.location = {
+                start: { offset: location.start, line: 0, column: 0 },
+                end: { offset: location.end, line: 0, column: 0 }
+            };
             throw err;
         }
         current.add(name);
     }
 
-    compile(ast: any): opcode[] {
+    compile(source: string, tree: Tree): opcode[] {
         this.opcodes = [];
         this.scopes = [];
+        this.source = source;
         this.enter_scope(); // Global scope
-        this.visit(ast);
+
+        const cursor = tree.cursor();
+        this.visit(cursor);
+
         this.exit_scope();
         return this.opcodes;
     }
 
-    compile_repl(ast: any): opcode[] {
+    compile_repl(source: string, tree: Tree): opcode[] {
         this.opcodes = [];
         this.scopes = [];
+        this.source = source;
         this.enter_scope(); // Global scope
 
-        if (ast.type === "SourceFile" && ast.body.length > 0) {
-            // Visit all but the last
-            for (let i = 0; i < ast.body.length - 1; i++) {
-                this.visit(ast.body[i]);
-            }
-            // Visit the last one specially
-            const last = ast.body[ast.body.length - 1];
-            if (last.type === "ExpressionStatement") {
-                this.visit(last.expression);
-                // DO NOT emit 'pop' so the value stays on stack
-            } else {
-                this.visit(last);
+        const cursor = tree.cursor();
+        if ((cursor.name as string) === "SourceFile") {
+            if (cursor.firstChild()) {
+                do {
+                    const isLast = !cursor.nextSibling();
+                    if (!isLast) cursor.prevSibling();
+
+                    let isExprStmt = false;
+                    if ((cursor.name as string) === "ExpressionStatement") isExprStmt = true;
+                    else if ((cursor.name as string) === "Statement") {
+                        if (cursor.firstChild()) {
+                            if ((cursor.name as string) === "ExpressionStatement") isExprStmt = true;
+                            cursor.parent();
+                        }
+                    }
+
+                    if (isLast && isExprStmt) {
+                        // Dive into ExpressionStatement
+                        let moved = false;
+                        if ((cursor.name as string) === "Statement") {
+                            cursor.firstChild();
+                            moved = true;
+                        }
+                        cursor.firstChild(); // Expression
+                        this.visit(cursor);
+                        cursor.parent();
+                        if (moved) cursor.parent();
+                    } else {
+                        this.visit(cursor);
+                    }
+                } while (cursor.nextSibling());
+                cursor.parent();
             }
         } else {
-            this.visit(ast);
+            this.visit(cursor);
         }
 
         this.exit_scope();
         return this.opcodes;
     }
 
-    private emit(op: any, node: any) {
+    private emit(op: any, location: { start: number, end: number }) {
         this.opcodes.push({
             ...op,
-            src_start: node.location?.start.offset || 0,
-            src_end: node.location?.end.offset || 0,
+            src_start: location.start,
+            src_end: location.end,
         } as opcode);
     }
 
-    private visit(node: any) {
-        if (!node) return;
+    private getIdentifierName(cursor: TreeCursor): string | null {
+        let currentType = cursor.name as string;
+        let depth = 0;
+        // Traverse through wrapper nodes
+        while (["PostfixExpression", "PrimaryExpression", "Expression", "Statement", "Literal"].includes(currentType)) {
+            if (cursor.firstChild()) {
+                depth++;
+                currentType = cursor.name as string;
+            } else {
+                break;
+            }
+        }
+        let name = null;
+        if (currentType === "Identifier") {
+            name = this.source.slice(cursor.from, cursor.to);
+        }
+        // Restore cursor
+        while (depth > 0) {
+            cursor.parent();
+            depth--;
+        }
+        return name;
+    }
 
-        switch (node.type) {
+    private visit(cursor: TreeCursor) {
+        const type = cursor.name as string;
+        const start = cursor.from;
+        const end = cursor.to;
+        const loc = { start, end };
+
+        switch (type) {
             case "SourceFile":
-                // SourceFile is top level, scope already created in compile()
-                node.body.forEach((s: any) => this.visit(s));
+            case "Block":
+                if (type === "Block") {
+                    this.enter_scope();
+                    this.emit({ type: 'enter_scope' }, loc);
+                }
+
+                if (cursor.firstChild()) {
+                    do {
+                        const n = cursor.name as string;
+                        if (n !== "{" && n !== "}" && n !== ";" && n !== "LineComment" && n !== "BlockComment") {
+                            this.visit(cursor);
+                        }
+                    } while (cursor.nextSibling());
+                    cursor.parent();
+                }
+
+                if (type === "Block") {
+                    this.emit({ type: 'exit_scope' }, loc);
+                    this.exit_scope();
+                }
                 break;
 
-            case "Block":
-                this.enter_scope();
-                this.emit({ type: 'enter_scope' }, node);
-                node.body.forEach((s: any) => this.visit(s));
-                this.emit({ type: 'exit_scope' }, node);
-                this.exit_scope();
+            case "Statement":
+            case "Expression":
+            case "PostfixExpression":
+            case "PrimaryExpression":
+            case "Literal":
+                if (cursor.firstChild()) {
+                    this.visit(cursor);
+                    cursor.parent();
+                }
                 break;
 
             case "VarInit":
-                this.visit(node.value);
-                this.declare_var(node.name, node);
-                this.emit({ type: 'init', name: node.name, catch: node.isCatch || false }, node);
+                cursor.firstChild(); // kw<"init">
+                cursor.nextSibling(); // Identifier
+                const varName = this.source.slice(cursor.from, cursor.to);
+                cursor.nextSibling(); // Op
+                const isCatchInit = (cursor.name as string) === "CatchAssignOp";
+                cursor.nextSibling(); // Expression
+                this.visit(cursor);
+
+                this.declare_var(varName, loc);
+                this.emit({ type: 'init', name: varName, catch: isCatchInit }, loc);
+
+                cursor.parent();
                 break;
 
             case "VarChange":
-                if (node.target.type === "Identifier") {
-                    this.visit(node.value);
-                    this.emit({ type: 'store', name: node.target.name, catch: node.isCatch || false }, node);
-                } else if (node.target.type === "MemberExpression") {
-                    this.visit(node.target.object);
-                    if (node.target.propertyType === "dot") {
-                        this.visit(node.value);
-                        this.emit({ type: 'member_store', name: node.target.property, catch: node.isCatch || false }, node);
-                    } else {
-                        this.visit(node.target.index);
-                        this.visit(node.value);
-                        this.emit({ type: 'index_store', catch: node.isCatch || false }, node);
+                cursor.firstChild(); // kw<"change">
+                cursor.nextSibling(); // Target
+
+                const targetIdName = this.getIdentifierName(cursor);
+                if (targetIdName) {
+                    cursor.nextSibling(); // Op
+                    const isCatchChange = (cursor.name as string) === "CatchAssignOp";
+                    cursor.nextSibling(); // Expression
+                    this.visit(cursor);
+                    this.emit({ type: 'store', name: targetIdName, catch: isCatchChange }, loc);
+                } else if ((cursor.name as string) === "MemberExpression") {
+                    cursor.firstChild(); // Object
+                    this.visit(cursor);
+                    cursor.nextSibling(); // "." or "["
+                    if ((cursor.name as string) === ".") {
+                        cursor.nextSibling(); // Identifier
+                        const propName = this.source.slice(cursor.from, cursor.to);
+                        cursor.parent();
+                        cursor.nextSibling(); // Op
+                        const isCatchChange = (cursor.name as string) === "CatchAssignOp";
+                        cursor.nextSibling(); // Expression
+                        this.visit(cursor);
+                        this.emit({ type: 'member_store', name: propName, catch: isCatchChange }, loc);
+                    } else { // "["
+                        cursor.nextSibling(); // Index
+                        this.visit(cursor);
+                        cursor.nextSibling(); // "]"
+                        cursor.parent();
+                        cursor.nextSibling(); // Op
+                        const isCatchChange = (cursor.name as string) === "CatchAssignOp";
+                        cursor.nextSibling(); // Expression
+                        this.visit(cursor);
+                        this.emit({ type: 'index_store', catch: isCatchChange }, loc);
                     }
                 }
+                cursor.parent();
                 break;
 
             case "IfStatement":
-                this.visit(node.condition);
-                const jumpIfFalseIdx = this.opcodes.length;
-                this.emit({ type: 'jump_if_false', addr: 0 }, node);
+                cursor.firstChild(); // if
+                cursor.nextSibling(); // (
+                cursor.nextSibling(); // Expression
+                this.visit(cursor);
 
-                // Consequence is a Block, so it handles scope
-                this.visit(node.consequence);
+                const jumpIfFalseIdx = this.opcodes.length;
+                this.emit({ type: 'jump_if_false', addr: 0 }, loc);
+
+                cursor.nextSibling(); // )
+                cursor.nextSibling(); // then
+                cursor.nextSibling(); // Block
+                this.visit(cursor);
 
                 const jumpToEndIdx = this.opcodes.length;
-                this.emit({ type: 'jump', addr: 0 }, node);
-
+                this.emit({ type: 'jump', addr: 0 }, loc);
                 (this.opcodes[jumpIfFalseIdx] as any).addr = this.opcodes.length;
-                if (node.alternative) {
-                    // alternative can be Block or IfStatement
-                    // If Block, handles scope. If ifstatement, it's recursive.
-                    this.visit(node.alternative);
+
+                if (cursor.nextSibling()) {
+                    if ((cursor.name as string) === "else") {
+                        cursor.nextSibling(); // Block or IfStatement
+                        this.visit(cursor);
+                    }
                 }
                 (this.opcodes[jumpToEndIdx] as any).addr = this.opcodes.length;
+                cursor.parent();
                 break;
 
             case "WhileStatement":
-                const startAddr = this.opcodes.length;
-                this.visit(node.condition);
+                const whileStartAddr = this.opcodes.length;
+                cursor.firstChild(); // while
+                cursor.nextSibling(); // (
+                cursor.nextSibling(); // Expression
+                this.visit(cursor);
                 const whileJumpOutIdx = this.opcodes.length;
-                this.emit({ type: 'jump_if_false', addr: 0 }, node);
-
-                this.visit(node.body);
-                this.emit({ type: 'jump', addr: startAddr }, node);
+                this.emit({ type: 'jump_if_false', addr: 0 }, loc);
+                cursor.nextSibling(); // )
+                cursor.nextSibling(); // then
+                cursor.nextSibling(); // Block
+                this.visit(cursor);
+                this.emit({ type: 'jump', addr: whileStartAddr }, loc);
                 (this.opcodes[whileJumpOutIdx] as any).addr = this.opcodes.length;
+                cursor.parent();
                 break;
 
             case "ForInStatement":
-                this.visit(node.collection);
-                this.emit({ type: 'get_iter' }, node);
+                cursor.firstChild(); // for
+                cursor.nextSibling(); // (
+                cursor.nextSibling(); // init
+                cursor.nextSibling(); // Identifier
+                const iterItem = this.source.slice(cursor.from, cursor.to);
+                cursor.nextSibling(); // in
+                cursor.nextSibling(); // Expression
+                this.visit(cursor);
+                this.emit({ type: 'get_iter' }, loc);
                 const forStartAddr = this.opcodes.length;
-                this.emit({ type: 'iter_next' }, node);
+                this.emit({ type: 'iter_next' }, loc);
                 const forJumpOutIdx = this.opcodes.length;
-                this.emit({ type: 'jump_if_false', addr: 0 }, node);
-
-                // Create a scope for the loop variable?
-                // The body is a Block, so it creates a scope.
-                // But the 'item' is declared for the loop.
-                // Ideally, 'item' should be in the block's scope or a wrapping scope?
-                // Let's create a scope for the loop variable + body
+                this.emit({ type: 'jump_if_false', addr: 0 }, loc);
                 this.enter_scope();
-                this.declare_var(node.item, node);
-                this.emit({ type: 'init', name: node.item, catch: false }, node);
-
-                // We must handle the body manually to avoid double scope creation if we just call visit(Block)
-                // But the parser guarantees body is a Block.
-                // If we call visit(Block), it creates ANOTHER scope.
-                // That's fine, nested scopes are OK.
-                this.visit(node.body);
-
+                this.declare_var(iterItem, loc);
+                this.emit({ type: 'init', name: iterItem, catch: false }, loc);
+                cursor.nextSibling(); // )
+                cursor.nextSibling(); // then
+                cursor.nextSibling(); // Block
+                this.visit(cursor);
                 this.exit_scope();
-
-                this.emit({ type: 'jump', addr: forStartAddr }, node);
+                this.emit({ type: 'jump', addr: forStartAddr }, loc);
                 (this.opcodes[forJumpOutIdx] as any).addr = this.opcodes.length;
+                cursor.parent();
                 break;
 
             case "ReturnStatement":
-                if (node.argument) {
-                    this.visit(node.argument);
+                cursor.firstChild(); // return
+                if (cursor.nextSibling()) {
+                    this.visit(cursor);
                 } else {
-                    this.emit({ type: 'push', imm: new perc_nil() }, node);
+                    this.emit({ type: 'push', imm: new perc_nil() }, loc);
                 }
-                this.emit({ type: 'ret' }, node);
+                this.emit({ type: 'ret' }, loc);
+                cursor.parent();
                 break;
 
             case "DebuggerStatement":
-                this.emit({ type: 'debugger' }, node);
+                this.emit({ type: 'debugger' }, loc);
                 break;
 
             case "ExpressionStatement":
-                this.visit(node.expression);
-                this.emit({ type: 'pop' }, node);
+                cursor.firstChild(); // Expression
+                this.visit(cursor);
+                this.emit({ type: 'pop' }, loc);
+                cursor.parent();
                 break;
 
             case "BinaryExpression":
-                this.visit(node.left);
-                this.visit(node.right);
-                this.emit({ type: 'binary_op', op: node.operator }, node);
+                cursor.firstChild(); // Left
+                this.visit(cursor);
+                cursor.nextSibling(); // Operator
+                const binOp = this.source.slice(cursor.from, cursor.to);
+                cursor.nextSibling(); // Right
+                this.visit(cursor);
+                this.emit({ type: 'binary_op', op: binOp }, loc);
+                cursor.parent();
                 break;
 
             case "UnaryExpression":
-                this.visit(node.operand);
-                this.emit({ type: 'unary_op', op: node.operator }, node);
+                cursor.firstChild(); // Op
+                const unOp = this.source.slice(cursor.from, cursor.to);
+                cursor.nextSibling(); // Operand
+                this.visit(cursor);
+                this.emit({ type: 'unary_op', op: unOp }, loc);
+                cursor.parent();
                 break;
 
             case "CallExpression":
-                // Special handling for 'typeof' intrinsic
-                if (node.callee.type === "Identifier" && node.callee.name === "typeof") {
-                    if (node.arguments.length !== 1) {
-                        throw new Error("typeof expects exactly 1 argument");
-                    }
-                    this.visit(node.arguments[0]);
-                    this.emit({ type: 'typeof' }, node);
+                cursor.firstChild(); // Callee
+                const calleeName = this.getIdentifierName(cursor);
+                if (calleeName === "typeof") {
+                    cursor.nextSibling(); // ArgumentList
+                    const count = this.visitArgumentList(cursor);
+                    if (count !== 1) throw new Error("typeof expects exactly 1 argument");
+                    this.emit({ type: 'typeof' }, loc);
+                    cursor.parent();
                     break;
                 }
-
-                // If callee is an identifier and is a known foreign function, emit call_foreign
-                if (node.callee.type === "Identifier" && this.foreign_funcs.has(node.callee.name)) {
-                    node.arguments.forEach((arg: any) => this.visit(arg));
-                    this.emit({ type: 'call_foreign', name: node.callee.name, nargs: node.arguments.length }, node);
-                } else {
-                    node.arguments.forEach((arg: any) => this.visit(arg));
-                    this.visit(node.callee);
-                    this.emit({ type: 'call', nargs: node.arguments.length }, node);
+                if (calleeName && this.foreign_funcs.has(calleeName)) {
+                    cursor.nextSibling(); // ArgumentList
+                    const n = this.visitArgumentList(cursor);
+                    this.emit({ type: 'call_foreign', name: calleeName, nargs: n }, loc);
+                    cursor.parent();
+                    break;
                 }
+                cursor.nextSibling(); // ArgumentList
+                const gArgs = this.visitArgumentList(cursor);
+                cursor.prevSibling(); // Callee
+                this.visit(cursor);
+                this.emit({ type: 'call', nargs: gArgs }, loc);
+                cursor.parent();
                 break;
 
             case "MemberExpression":
-                this.visit(node.object);
-                if (node.propertyType === "dot") {
-                    this.emit({ type: 'member_load', name: node.property }, node);
+                cursor.firstChild(); // Object
+                this.visit(cursor);
+                cursor.nextSibling(); // "." or "["
+                if ((cursor.name as string) === ".") {
+                    cursor.nextSibling(); // Identifier
+                    const pName = this.source.slice(cursor.from, cursor.to);
+                    this.emit({ type: 'member_load', name: pName }, loc);
                 } else {
-                    this.visit(node.index);
-                    this.emit({ type: 'index_load' }, node);
+                    cursor.nextSibling(); // Index
+                    this.visit(cursor);
+                    this.emit({ type: 'index_load' }, loc);
                 }
+                cursor.parent();
                 break;
 
             case "InstantiationExpression":
-                this.visit(node.expression);
+                cursor.firstChild(); // new
+                cursor.nextSibling(); // Literal
+                this.visit(cursor);
+                cursor.parent();
                 break;
 
             case "ArrayLiteral":
-                node.elements.forEach((el: any) => this.visit(el));
-                this.emit({ type: 'new_array', size: node.elements.length }, node);
-                break;
-
-            case "MapLiteral":
-                node.pairs.forEach((p: any) => {
-                    this.visit(p.key);
-                    this.visit(p.value);
-                });
-                this.emit({ type: 'new_map', size: node.pairs.length }, node);
+                cursor.firstChild(); // "["
+                let arrSize = 0;
+                while (cursor.nextSibling() && (cursor.name as string) !== "]") {
+                    if ((cursor.name as string) !== ",") {
+                        this.visit(cursor);
+                        arrSize++;
+                    }
+                }
+                this.emit({ type: 'new_array', size: arrSize }, loc);
+                cursor.parent();
                 break;
 
             case "TupleLiteral":
-                node.elements.forEach((el: any) => this.visit(el));
-                this.emit({ type: 'new_tuple', size: node.elements.length }, node);
+                cursor.firstChild(); // "(|"
+                let tupSize = 0;
+                while (cursor.nextSibling() && (cursor.name as string) !== "|)") {
+                    if ((cursor.name as string) !== ",") {
+                        this.visit(cursor);
+                        tupSize++;
+                    }
+                }
+                this.emit({ type: 'new_tuple', size: tupSize }, loc);
+                cursor.parent();
+                break;
+
+            case "MapLiteral":
+                cursor.firstChild(); // "{"
+                let mapSize = 0;
+                while (cursor.nextSibling() && (cursor.name as string) !== "}") {
+                    if ((cursor.name as string) === "Pair") {
+                        cursor.firstChild(); // Key
+                        this.visit(cursor);
+                        cursor.nextSibling(); // :
+                        cursor.nextSibling(); // Value
+                        this.visit(cursor);
+                        cursor.parent();
+                        mapSize++;
+                    }
+                }
+                this.emit({ type: 'new_map', size: mapSize }, loc);
+                cursor.parent();
                 break;
 
             case "FunctionDeclaration":
             case "FunctionLiteral":
-                const jumpOverFuncIdx = this.opcodes.length;
-                this.emit({ type: 'jump', addr: 0 }, node);
+                const funcJumpOverIdx = this.opcodes.length;
+                this.emit({ type: 'jump', addr: 0 }, loc);
                 const funcStartAddr = this.opcodes.length;
-
-                // Function creates a new scope for arguments
+                cursor.firstChild(); // function
+                let fName = "anonymous";
+                if (type === "FunctionDeclaration") {
+                    cursor.nextSibling(); // Identifier
+                    fName = this.source.slice(cursor.from, cursor.to);
+                }
+                cursor.nextSibling(); // ParameterList
+                const params: string[] = [];
+                if (cursor.firstChild()) { // (
+                    while (cursor.nextSibling() && (cursor.name as string) !== ")") {
+                        if ((cursor.name as string) === "Identifier") {
+                            params.push(this.source.slice(cursor.from, cursor.to));
+                        }
+                    }
+                    cursor.parent();
+                }
                 this.enter_scope();
-
-                // Parameters are pushed to stack by 'call', we just need to 'init' them
-                // parameters is just string array from grammar
-                const params = node.parameters || [];
-                // Parameters are pushed in order, but 'init' will pop them.
-                // Wait, if I have f(a, b). Call pushes a, then b.
-                // Stack: [..., a, b]
-                // Need to pop b, then a.
-                params.slice().reverse().forEach((p: string) => {
-                    this.declare_var(p, node);
-                    this.emit({ type: 'init', name: p, catch: false }, node);
+                params.slice().reverse().forEach(p => {
+                    this.declare_var(p, loc);
+                    this.emit({ type: 'init', name: p, catch: false }, loc);
                 });
-
-                // Body is a Block, but we opened a scope for params.
-                // We should reuse this scope or enter a new one?
-                // The 'Block' visit will enter a NEW scope.
-                // This means 'params' are in outer scope of 'body'.
-                // If I declare 'a' in 'body', it shadows param 'a'.
-                // Standard JS prevents `let a` if param `a` exists?
-                // "Duplicate parameter name not allowed in this context"
-                // But here, if visit(Block) pushes new scope, then `init a` inside block is valid shadowing.
-                // Is that desired? Usually params are in the function scope, and var declarations in top level of function are in same scope.
-                // But our language treats Block as scope.
-                // If I just call visit(node.body), it creates a child scope.
-                // I think that's acceptable for now unless user complains.
-
-                // wait, "body" is a Block node.
-                // if I manually visit children of block without `enter_scope`?
-                // Let's stick to standard behavior: params are in function scope. Body block is a child scope.
-                this.visit(node.body);
-
-                this.exit_scope(); // Close function scope
-
-                // Ensure every function returns nil if it doesn't have an explicit return
-                this.emit({ type: 'push', imm: new perc_nil() }, node);
-                this.emit({ type: 'ret' }, node);
-
-                (this.opcodes[jumpOverFuncIdx] as any).addr = this.opcodes.length;
-
-                // TODO: Captured variables analysis
+                cursor.nextSibling(); // Block
+                this.visit(cursor);
+                this.exit_scope();
+                this.emit({ type: 'push', imm: new perc_nil() }, loc);
+                this.emit({ type: 'ret' }, loc);
+                (this.opcodes[funcJumpOverIdx] as any).addr = this.opcodes.length;
                 this.emit({
                     type: 'make_closure',
                     addr: funcStartAddr,
                     captured: [],
-                    name: node.type === "FunctionDeclaration" ? node.name : "anonymous"
-                }, node);
-                if (node.type === "FunctionDeclaration") {
-                    this.declare_var(node.name, node);
-                    this.emit({ type: 'init', name: node.name, catch: false }, node);
+                    name: fName
+                }, loc);
+                if (type === "FunctionDeclaration") {
+                    this.declare_var(fName, loc);
+                    this.emit({ type: 'init', name: fName, catch: false }, loc);
                 }
+                cursor.parent();
                 break;
 
             case "Identifier":
-                this.emit({ type: 'load', name: node.name }, node);
+                this.emit({ type: 'load', name: this.source.slice(start, end) }, loc);
                 break;
 
             case "IntegerLiteral":
-                this.emit({ type: 'push', imm: new perc_number(parseInt(node.value.replace(/_/g, '')), 'i32') }, node);
+                this.emit({ type: 'push', imm: new perc_number(parseInt(this.source.slice(start, end).replace(/_/g, '')), 'i32') }, loc);
                 break;
             case "FloatLiteral":
-                this.emit({ type: 'push', imm: new perc_number(parseFloat(node.value.replace(/_/g, '')), 'f64') }, node);
+                this.emit({ type: 'push', imm: new perc_number(parseFloat(this.source.slice(start, end).replace(/_/g, '')), 'f64') }, loc);
                 break;
             case "StringLiteral":
-                this.emit({ type: 'push', imm: new perc_string(node.value) }, node);
+                this.emit({ type: 'push', imm: new perc_string(JSON.parse(this.source.slice(start, end))) }, loc);
                 break;
             case "BooleanLiteral":
-                this.emit({ type: 'push', imm: new perc_bool(node.value) }, node);
+                this.emit({ type: 'push', imm: new perc_bool(this.source.slice(start, end) === "true") }, loc);
                 break;
             case "NilLiteral":
-                this.emit({ type: 'push', imm: new perc_nil() }, node);
+                this.emit({ type: 'push', imm: new perc_nil() }, loc);
                 break;
 
+            case "ParenthesizedExpression":
+                cursor.firstChild(); // (
+                cursor.nextSibling(); // Expression
+                this.visit(cursor);
+                cursor.parent();
+                break;
+
+            case "⚠":
+                throw new Error("Syntax error");
+
             default:
-                console.warn(`Unknown node type: ${node.type}`, node);
+                break;
         }
+    }
+
+    private visitArgumentList(cursor: TreeCursor): number {
+        let count = 0;
+        if (cursor.firstChild()) { // "("
+            while (cursor.nextSibling() && (cursor.name as string) !== ")") {
+                if ((cursor.name as string) !== ",") {
+                    this.visit(cursor);
+                    count++;
+                }
+            }
+            cursor.parent();
+        }
+        return count;
     }
 }

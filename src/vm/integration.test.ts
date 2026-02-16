@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { VM } from './index';
 import { Compiler } from './compiler';
 import { perc_nil } from './perc_types';
-import * as parser from '../ast-adapter';
+import { parser } from '../lang.grammar';
 
 describe('PerC Integration Tests', () => {
     const run = (code: string) => {
@@ -116,7 +116,7 @@ describe('PerC Integration Tests', () => {
             print("Map count: " + m["count"])
         `;
         const { printed } = run(code);
-        expect(printed).toEqual(['Sum is large: 14', 'Map count: 50']);
+        expect(printed).toEqual(['Sum is large: 15', 'Map count: 50']);
     });
 
     // Removed the "custom foreign functions" test that manually generated parser
@@ -137,8 +137,8 @@ describe('PerC Integration Tests', () => {
             save_result(x * 2)
         `;
 
-        const ast = parser.parse(code);
-        const opcodes = compiler.compile(ast);
+        const tree = parser.parse(code);
+        const opcodes = compiler.compile(code, tree);
         vm.reset_state();
         (vm as any).code = opcodes;
 

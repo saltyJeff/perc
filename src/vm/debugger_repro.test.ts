@@ -1,8 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { VM } from './index';
-// @ts-ignore
-import parser from '../perc-grammar.pegjs';
-import { perc_string, perc_nil } from './perc_types';
+import { parser } from '../lang.grammar';
+import { perc_string } from './perc_types';
 
 describe('Debugger Repro', () => {
     let vm: VM;
@@ -15,7 +14,7 @@ describe('Debugger Repro', () => {
         const varUpdates: { name: string, value: string }[] = [];
 
         vm.set_events({
-            on_var_update: (name, value, range) => {
+            on_var_update: (name, value) => {
                 varUpdates.push({ name, value: value.to_string() });
             }
         });

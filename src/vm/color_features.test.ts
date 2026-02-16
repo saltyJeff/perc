@@ -1,12 +1,7 @@
-
 import { VM } from "./index.ts";
 import { perc_number, perc_string, perc_map } from "./perc_types.ts";
 import { expect, test, describe } from "vitest";
-import * as peggy from "peggy";
-import fs from "fs";
-
-const grammar = fs.readFileSync("./src/perc-grammar.pegjs", "utf-8");
-const parser = peggy.generate(grammar);
+import { parser } from "../lang.grammar";
 
 describe("Color Features", () => {
     const run = (code: string) => {
@@ -15,7 +10,8 @@ describe("Color Features", () => {
         vm.set_events({
             on_stack_top_update: (val) => lastTop = val
         });
-        vm.execute(code, parser);
+        vm.execute_repl(code, parser);
+        vm.in_debug_mode = true;
         const gen = vm.run();
         while (!gen.next().done) { }
         return lastTop;
@@ -55,10 +51,13 @@ describe("Color Features", () => {
     test("Z-Index Removal", () => {
         // z_index should not be defined in default VM registration
         const vm = new VM();
-        expect(() => {
-            vm.execute("z_index(1);", parser);
-            const gen = vm.run();
-            while (!gen.next().done) { }
-        }).toThrow(/Foreign function not found: z_index/);
+        let errorReported = "";
+        vm.set_events({
+            on_error: (msg) => errorReported = msg
+        });
+        vm.execute("z_index(1);", parser);
+        const gen = vm.run();
+        while (!gen.next().done) { }
+        expect(errorReported).toMatch(/Undefined variable: z_index/);
     });
 });
