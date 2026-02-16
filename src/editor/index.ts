@@ -3,7 +3,8 @@ import { keymap, Decoration } from "@codemirror/view";
 import type { DecorationSet } from "@codemirror/view";
 import { EditorState, StateEffect, StateField } from "@codemirror/state";
 import type { StateEffectType } from "@codemirror/state";
-import { oneDark } from "@codemirror/theme-one-dark";
+import { githubDark } from "@fsegurai/codemirror-theme-github-dark";
+import { githubLight } from "@fsegurai/codemirror-theme-github-light";
 import { perc } from "./perc-language";
 import { indentWithTab } from "@codemirror/commands";
 import { indentUnit } from "@codemirror/language";
@@ -74,7 +75,7 @@ export class Editor {
                 indentUnit.of("    "),
                 autocompletion({ activateOnTyping: true }),
                 perc(this.builtins, this.variableProvider),
-                this.theme === 'dark' ? oneDark : [],
+                this.theme === 'dark' ? githubDark : githubLight,
                 EditorState.readOnly.of(this.readOnly),
                 this.wordWrap ? EditorView.lineWrapping : [],
                 debugHighlightField,
