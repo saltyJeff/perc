@@ -22,7 +22,7 @@ export class Compiler {
     private declare_var(name: string, node: any) {
         const current = this.scopes[this.scopes.length - 1];
         if (current.has(name)) {
-            const loc: [number, number] | null = node.location ? [node.location.start.offset, node.location.end.offset] : null;
+            // const loc: [number, number] | null = node.location ? [node.location.start.offset, node.location.end.offset] : null;
             // Throw error with location property that VM can catch
             const err: any = new Error(`Variable '${name}' already declared in this scope`);
             err.location = node.location;

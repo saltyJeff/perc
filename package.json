@@ -13,12 +13,14 @@
     "@types/jquery": "^3.5.33",
     "typescript": "~5.9.3",
     "vite": "^7.3.1",
+    "vite-plugin-solid": "^2.11.10",
     "vitest": "^4.0.18"
   },
   "dependencies": {
     "ace-builds": "^1.43.6",
     "jquery": "^4.0.0",
     "peggy": "^5.0.6",
-    "snabbdom": "^3.6.3"
+    "snabbdom": "^3.6.3",
+    "solid-js": "^1.9.11"
   }
 }

@@ -8,6 +8,7 @@ import { GUIManager } from './gui_window/manager';
 import { perc_string } from './vm/perc_types';
 // @ts-ignore
 import parser from './perc-grammar.pegjs';
+
 import './style.css';
 import './console/console.css';
 import './editor/editor.css';

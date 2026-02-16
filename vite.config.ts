@@ -1,7 +1,10 @@
 import peggyLoader from "./vite-peggy-loader"
+import solidPlugin from 'vite-plugin-solid';
+
 export default {
     plugins: [
-        peggyLoader()
+        peggyLoader(),
+        solidPlugin(),
     ],
     build: {
         target: "es2020",
