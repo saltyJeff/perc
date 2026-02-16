@@ -37,11 +37,11 @@ export abstract class perc_type {
 
     is_truthy(): boolean { return true; }
 
-    get_iterator(): perc_iterator {
-        return {
-            next: () => ({ value: new perc_nil(), done: true })
-        };
+    get_iterator(): perc_iterator | perc_err {
+        return new perc_err(`Type '${this.type}' is not iterable`);
     }
+
+    clone(): perc_type { return new perc_err("Cannot clone primitive type"); }
 
     to_string(): string { return "[object perc_type]"; }
 }
@@ -215,8 +215,32 @@ export class perc_string extends perc_type {
     add(other: perc_type): perc_type {
         return new perc_string(this.value + other.to_string());
     }
+    get(key: perc_type): perc_type {
+        if (key instanceof perc_number) {
+            const idx = key.buffer[0] - 1; // 1-based indexing
+            if (idx < 0) return new perc_err("Index out of bounds");
+
+            let i = 0;
+            for (const char of this.value) {
+                if (i === idx) return new perc_string(char);
+                i++;
+            }
+            return new perc_err("Index out of bounds");
+        }
+        return super.get(key);
+    }
     eq(other: perc_type): perc_bool {
         return new perc_bool(other instanceof perc_string && this.value === other.value);
+    }
+    get_iterator(): perc_iterator | perc_err {
+        const iter = this.value[Symbol.iterator]();
+        return {
+            next: () => {
+                const res = iter.next();
+                if (res.done) return { value: new perc_nil(), done: true };
+                return { value: new perc_string(res.value), done: false };
+            }
+        };
     }
 }
 
@@ -229,7 +253,7 @@ export class perc_list extends perc_type {
     }
     get(key: perc_type): perc_type {
         if (key instanceof perc_number) {
-            const idx = key.buffer[0];
+            const idx = key.buffer[0] - 1; // 1-based indexing
             if (idx >= 0 && idx < this.elements.length) return this.elements[idx];
             return new perc_err("Index out of bounds");
         }
@@ -237,7 +261,7 @@ export class perc_list extends perc_type {
     }
     set(key: perc_type, value: perc_type): perc_type {
         if (key instanceof perc_number) {
-            const idx = key.buffer[0];
+            const idx = key.buffer[0] - 1; // 1-based indexing
             if (idx >= 0 && idx < this.elements.length) {
                 this.elements[idx] = value;
                 return value;
@@ -246,7 +270,11 @@ export class perc_list extends perc_type {
         }
         return super.set(key, value);
     }
-    get_iterator(): perc_iterator {
+    clone(): perc_type {
+        // Shallow copy
+        return new perc_list([...this.elements]);
+    }
+    get_iterator(): perc_iterator | perc_err {
         let i = 0;
         return {
             next: () => {
@@ -259,6 +287,44 @@ export class perc_list extends perc_type {
     }
     to_string(): string {
         return "[" + this.elements.map(e => e.to_string()).join(", ") + "]";
+    }
+}
+
+export class perc_tuple extends perc_type {
+    elements: perc_type[];
+    get type() { return 'tuple'; }
+    constructor(elements: perc_type[] = []) {
+        super();
+        this.elements = elements;
+    }
+    get(key: perc_type): perc_type {
+        if (key instanceof perc_number) {
+            const idx = key.buffer[0] - 1; // 1-based indexing
+            if (idx >= 0 && idx < this.elements.length) return this.elements[idx];
+            return new perc_err("Index out of bounds");
+        }
+        return super.get(key);
+    }
+    set(key: perc_type, value: perc_type): perc_type {
+        return new perc_err("Tuples are immutable");
+    }
+    clone(): perc_type {
+        // Shallow copy - effectively creates a new tuple with same elements
+        return new perc_tuple([...this.elements]);
+    }
+    get_iterator(): perc_iterator | perc_err {
+        let i = 0;
+        return {
+            next: () => {
+                if (i < this.elements.length) {
+                    return { value: this.elements[i++], done: false };
+                }
+                return { value: new perc_nil(), done: true };
+            }
+        };
+    }
+    to_string(): string {
+        return "(| " + this.elements.map(e => e.to_string()).join(", ") + " |)";
     }
 }
 
@@ -276,6 +342,12 @@ export class perc_map extends perc_type {
     set(key: perc_type, value: perc_type): perc_type {
         this.data.set(key.to_string(), value);
         return value;
+    }
+    clone(): perc_type {
+        const m = new perc_map();
+        // Shallow copy of map data
+        m.data = new Map(this.data);
+        return m;
     }
     to_string(): string {
         return "{" + Array.from(this.data.entries()).map(([k, v]) => `${k}: ${v.to_string()}`).join(", ") + "}";

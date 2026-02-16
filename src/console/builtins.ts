@@ -1,5 +1,5 @@
 import type { BuiltinFunc } from "../vm/builtins";
-import { perc_nil, perc_number, perc_string, perc_map, perc_type } from "../vm/perc_types";
+import { perc_nil, perc_number, perc_string, perc_map, perc_type, perc_err } from "../vm/perc_types";
 import { Console } from "./index";
 
 export const createConsoleBuiltins = (appConsole: Console): Record<string, BuiltinFunc> => {
@@ -21,14 +21,14 @@ export const createConsoleBuiltins = (appConsole: Console): Record<string, Built
                 // We should probably return error instead of throwing to be consistent with VM?
                 // But legacy code threw Error. Let's return error to be nicer.
                 // Wait, VM catches errors and reports them.
-                throw new Error(`text_color: argument must be a color map (from rgb() or hsl()), got ${color.type}`);
+                return new perc_err(`text_color: argument must be a color map (from rgb() or hsl()), got ${color.type}`);
             }
             const r = color.get(new perc_string('r'));
             const g = color.get(new perc_string('g'));
             const b = color.get(new perc_string('b'));
 
             if (!(r instanceof perc_number) || !(g instanceof perc_number) || !(b instanceof perc_number)) {
-                throw new Error("text_color: invalid color map components");
+                return new perc_err("text_color: invalid color map components");
             }
 
             const rVal = Math.max(0, Math.min(255, Math.floor(r.buffer[0])));

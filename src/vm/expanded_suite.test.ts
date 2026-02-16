@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { VM } from './index';
 import * as peggy from "peggy";
 import fs from "fs";
-import { perc_list, perc_map, perc_number } from './perc_types';
+import { perc_list, perc_map, perc_number, perc_tuple } from './perc_types';
 
 const grammar = fs.readFileSync("./src/perc-grammar.pegjs", "utf-8");
 const parser = peggy.generate(grammar);
@@ -71,8 +71,8 @@ describe('Expanded Suite', () => {
         const scope = vm.get_current_scope_values();
         const j = scope['j'].value;
         // Currently correctly implemented as perc_list in VM
-        expect(j).toBeInstanceOf(perc_list);
-        const tuple = j as perc_list;
+        expect(j).toBeInstanceOf(perc_tuple);
+        const tuple = j as perc_tuple;
         expect(tuple.elements.length).toBe(3);
         expect(tuple.elements[0].to_string()).toBe("1");
     });

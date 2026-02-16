@@ -335,6 +335,11 @@ while(true) then {
             appConsole.input(`> ${input}`);
             $(e.target).val('');
 
+            // Push to history if valid command
+            if (input.trim()) {
+                appConsole.pushHistory(input);
+            }
+
             if (isWaitingForInput && currentRunner) {
                 // Resume VM
                 vm.resume_with_input(new perc_string(input));
@@ -359,6 +364,20 @@ while(true) then {
                 } catch (err: any) {
                     // Errors already logged
                 }
+            }
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            const currentInput = $(e.target).val() as string;
+            const historyCmd = appConsole.navigateHistory('up', currentInput);
+            if (historyCmd !== null) {
+                $(e.target).val(historyCmd);
+            }
+        } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            const currentInput = $(e.target).val() as string;
+            const historyCmd = appConsole.navigateHistory('down', currentInput);
+            if (historyCmd !== null) {
+                $(e.target).val(historyCmd);
             }
         }
     });

@@ -1,5 +1,5 @@
 import type { opcode } from "./opcodes.ts";
-import { perc_type, perc_bool, perc_err, perc_closure, perc_number, perc_string, perc_list, perc_map } from "./perc_types.ts";
+import { perc_type, perc_bool, perc_err, perc_closure, perc_number, perc_string, perc_list, perc_map, perc_tuple } from "./perc_types.ts";
 import type { perc_iterator } from "./perc_types.ts";
 import { Compiler } from "./compiler.ts";
 import { standardBuiltins } from "./builtins.ts";
@@ -386,7 +386,12 @@ export class VM {
                             this.return_error(iter_obj);
                             continue;
                         }
-                        this.iterators.push(iter_obj.get_iterator());
+                        const iterator = iter_obj.get_iterator();
+                        if (iterator instanceof perc_err) {
+                            this.return_error(iterator);
+                            continue;
+                        }
+                        this.iterators.push(iterator);
                         break;
                     case 'iter_next':
                         const iter = this.iterators[this.iterators.length - 1];
@@ -497,7 +502,6 @@ export class VM {
                         this.push(m);
                         break;
                     case 'new_tuple':
-                        // For now, treat tuples as lists or a restricted list
                         const tup_els: perc_type[] = [];
                         let tup_err: perc_err | null = null;
                         for (let i = 0; i < op.size; i++) {
@@ -509,7 +513,7 @@ export class VM {
                             this.return_error(tup_err);
                             continue;
                         }
-                        this.push(new perc_list(tup_els.reverse()));
+                        this.push(new perc_tuple(tup_els.reverse()));
                         break;
                     case 'index_load':
                         const idx = this.pop();
@@ -540,7 +544,12 @@ export class VM {
                             this.return_error(st_obj);
                             continue;
                         }
-                        this.push(st_obj.set(st_idx, st_val));
+                        const st_res = st_obj.set(st_idx, st_val);
+                        if (st_res instanceof perc_err && !op.catch) {
+                            this.return_error(st_res);
+                            continue;
+                        }
+                        this.push(st_res);
                         break;
                     case 'member_load':
                         const m_obj = this.pop();
@@ -562,7 +571,12 @@ export class VM {
                             this.return_error(ms_obj);
                             continue;
                         }
-                        this.push(ms_obj.set(new perc_string(op.name), ms_val));
+                        const ms_res = ms_obj.set(new perc_string(op.name), ms_val);
+                        if (ms_res instanceof perc_err && !op.catch) {
+                            this.return_error(ms_res);
+                            continue;
+                        }
+                        this.push(ms_res);
                         break;
                     case 'debugger':
                         this.in_debug_mode = true;

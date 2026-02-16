@@ -59,7 +59,14 @@ export function renderValue(value: perc_type): JQuery<HTMLElement> {
             $(document).on('touchend', hideTooltip);
         }
 
+
+
         return $container;
+    }
+
+    if (value.type === 'string') {
+        const strVal = value.to_string();
+        return $('<td>', { class: 'perc-value', text: `"${strVal}"` });
     }
 
     // Default fallback

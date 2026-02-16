@@ -239,7 +239,6 @@ Literal
   = FloatLiteral
   / IntegerLiteral
   / StringLiteral
-  / CharLiteral
   / BooleanLiteral
   / NilLiteral
 
@@ -279,14 +278,8 @@ StringChar
   = !("\"" / "\\") char:. { return char; }
   / "\\" sequence:EscapeSequence { return sequence; }
 
-CharLiteral
-  = "'" char:( !("'" / "\\") c:. { return c; } / "\\" s:EscapeSequence { return s; } ) "'" {
-      return node("CharLiteral", { value: char });
-    }
-
 EscapeSequence
-  = "'"
-  / "\""
+  = "\""
   / "\\"
   / "b" { return "\b"; }
   / "f" { return "\f"; }
@@ -349,7 +342,6 @@ Keyword
     / "is"
     / "and"
     / "or"
-    / "clone"
     ) ![a-zA-Z0-9_]
 
 // --- Extras ---

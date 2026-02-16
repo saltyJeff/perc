@@ -328,7 +328,6 @@ export class Compiler {
                 this.emit({ type: 'push', imm: new perc_number(parseFloat(node.value.replace(/_/g, '')), 'f64') }, node);
                 break;
             case "StringLiteral":
-            case "CharLiteral":
                 this.emit({ type: 'push', imm: new perc_string(node.value) }, node);
                 break;
             case "BooleanLiteral":

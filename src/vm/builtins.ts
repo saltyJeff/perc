@@ -22,6 +22,11 @@ for (const t of types) {
 standardBuiltins['int'] = standardBuiltins['i32'];
 standardBuiltins['float'] = standardBuiltins['f64'];
 
+// Clone
+standardBuiltins['clone'] = (arg: perc_type) => {
+    return arg.clone();
+};
+
 // Color functions
 standardBuiltins['rgb'] = (r: perc_type, g: perc_type, b: perc_type) => {
     const m = new perc_map();

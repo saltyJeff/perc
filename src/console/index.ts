@@ -89,4 +89,53 @@ export class Console {
     public focusInput() {
         this.inputElement.focus();
     }
+
+    // History Logic
+    private history: string[] = [];
+    private historyIndex: number = 0;
+    private tempInput: string = "";
+
+    public pushHistory(cmd: string) {
+        if (!cmd.trim()) return;
+
+        // Remove duplicates if same as last
+        if (this.history.length > 0 && this.history[this.history.length - 1] === cmd) {
+            this.historyIndex = this.history.length;
+            this.tempInput = "";
+            return;
+        }
+
+        this.history.push(cmd);
+        if (this.history.length > 20) {
+            this.history.shift();
+        }
+        this.historyIndex = this.history.length;
+        this.tempInput = "";
+    }
+
+    public navigateHistory(direction: 'up' | 'down', currentInput: string): string | null {
+        if (this.history.length === 0) return null;
+
+        // If we are at the end (new input), save current input
+        if (this.historyIndex === this.history.length) {
+            this.tempInput = currentInput;
+        }
+
+        if (direction === 'up') {
+            if (this.historyIndex > 0) {
+                this.historyIndex--;
+                return this.history[this.historyIndex];
+            }
+        } else if (direction === 'down') {
+            if (this.historyIndex < this.history.length) {
+                this.historyIndex++;
+                if (this.historyIndex === this.history.length) {
+                    return this.tempInput;
+                }
+                return this.history[this.historyIndex];
+            }
+        }
+
+        return null;
+    }
 }
