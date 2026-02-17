@@ -1,0 +1,76 @@
+.app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+}
+
+.mainLayout {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    position: relative;
+}
+
+.verticalContainer {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+}
+
+.maximized {
+    position: static;
+}
+
+.topContainer {
+    display: flex;
+    flex: 1;
+    flex-direction: row;
+    overflow: hidden;
+}
+
+.splitter {
+    background-color: var(--border-color);
+    z-index: 10;
+    transition: background-color 0.2s;
+}
+
+.splitter:hover {
+    background-color: var(--accent-color);
+}
+
+.vSplit {
+    width: 4px;
+    cursor: col-resize;
+    height: 100%;
+}
+
+.hSplit {
+    height: 4px;
+    cursor: row-resize;
+    width: 100%;
+}
+
+.consoleInputContainer {
+    padding: 8px 12px;
+    border-top: 1px solid var(--border-color);
+    background: var(--panel-bg);
+}
+
+.prompt {
+    color: var(--accent-color);
+    font-weight: bold;
+    margin-right: 8px;
+}
+
+.replInput {
+    background: transparent;
+    border: none;
+    color: var(--fg-color);
+    font-family: 'Fira Code', monospace;
+    font-size: 14px;
+    width: calc(100% - 25px);
+    outline: none;
+}

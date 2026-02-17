@@ -1,5 +1,11 @@
-import { createSignal } from 'solid-js';
+import { createSignal, onMount, onCleanup } from 'solid-js';
+import { createStore } from 'solid-js/store';
 import { MenuBar } from './MenuBar';
+import { EditorPane } from '../editor/EditorPane';
+import { DebuggerPane } from '../debugger/DebuggerPane';
+import { ConsolePane } from '../console/ConsolePane';
+import $ from 'jquery';
+import styles from './App.module.css';
 
 interface AppProps {
     onRun: () => void;
@@ -9,16 +15,140 @@ interface AppProps {
     onBuild: () => void;
     onTheme: (theme: 'light' | 'dark') => void;
     onWrap: (wrap: 'on' | 'off') => void;
+    onEditorZoom: (size: number) => void;
+    onDebuggerZoom: (size: number) => void;
+    onConsoleZoom: (size: number) => void;
 }
+
+type PaneState = 'min' | 'max' | 'restore';
 
 export const App = (props: AppProps) => {
     const [menuState, setMenuState] = createSignal<'idle' | 'running' | 'debugging'>('idle');
 
+    const [paneStates, setPaneStates] = createStore({
+        editor: 'restore' as PaneState,
+        debugger: 'restore' as PaneState,
+        console: 'restore' as PaneState
+    });
+
     // These will be used to expose the state setters to index.tsx
     (window as any).setMenuState = setMenuState;
+    (window as any).setPaneState = (name: 'editor' | 'debugger' | 'console', state: PaneState) => {
+        handlePaneStateChange(name, state);
+    };
+
+    const handlePaneStateChange = (name: 'editor' | 'debugger' | 'console', state: PaneState) => {
+        if (state === 'max') {
+            setPaneStates({
+                editor: name === 'editor' ? 'max' : 'min',
+                debugger: name === 'debugger' ? 'max' : 'min',
+                console: name === 'console' ? 'max' : 'min'
+            });
+        } else if (state === 'restore') {
+            setPaneStates({
+                editor: 'restore',
+                debugger: 'restore',
+                console: 'restore'
+            });
+        } else {
+            setPaneStates(name, 'min');
+        }
+
+        // Trigger editor resize (legacy)
+        if ((window as any).editor) {
+            setTimeout(() => (window as any).editor.resize(), 0);
+        }
+    };
+
+    // Resizing logic
+    let isDraggingV = false;
+    let isDraggingH = false;
+
+    const onMouseDownV = (e: MouseEvent) => {
+        isDraggingV = true;
+        document.body.style.cursor = 'col-resize';
+        e.preventDefault();
+    };
+
+    const onMouseDownH = (e: MouseEvent) => {
+        isDraggingH = true;
+        document.body.style.cursor = 'row-resize';
+        e.preventDefault();
+    };
+
+    let resizeFrame: number | null = null;
+    const triggerResize = () => {
+        if (resizeFrame) return;
+        resizeFrame = requestAnimationFrame(() => {
+            if ((window as any).editor) (window as any).editor.resize();
+            resizeFrame = null;
+        });
+    };
+
+    const onMouseMove = (e: MouseEvent) => {
+        if (isDraggingV) {
+            const $mainLayout = $('#main-layout');
+            const totalWidth = $mainLayout.width() || 0;
+            const newEditorWidth = e.clientX;
+
+            const $editor = $('#editor-pane');
+            if (newEditorWidth < 60) {
+                if (paneStates.editor !== 'min') handlePaneStateChange('editor', 'min');
+                $editor.css('width', '32px');
+                $editor.css('flex', '0 0 32px');
+            } else if (totalWidth - newEditorWidth < 60) {
+                // Too far right, don't allow
+            } else {
+                if (paneStates.editor === 'min') handlePaneStateChange('editor', 'restore');
+                $editor.css('width', newEditorWidth + 'px');
+                $editor.css('flex', '0 0 ' + newEditorWidth + 'px');
+            }
+            triggerResize();
+        }
+        if (isDraggingH) {
+            const $vContainer = $('#vertical-container');
+            const totalHeight = $vContainer.height() || 0;
+            const menubarHeight = $('.menu-bar').height() || 0; // Note: menu-bar is outside vertical-container but above it in flow
+            // Actually, clientY is relative to viewport. menubarHeight is correct if it's top:0.
+            const localY = e.clientY - menubarHeight;
+            const newDebugHeight = localY;
+
+            const $debugger = $('#debugger-pane');
+            if (newDebugHeight < 60) {
+                if (paneStates.debugger !== 'min') handlePaneStateChange('debugger', 'min');
+                $debugger.css('height', '32px');
+                $debugger.css('flex', '0 0 32px');
+            } else if (totalHeight - newDebugHeight < 60) {
+                if (paneStates.console !== 'min') handlePaneStateChange('console', 'min');
+                // $debugger stays full height minus console strip
+            } else {
+                if (paneStates.debugger === 'min') handlePaneStateChange('debugger', 'restore');
+                if (paneStates.console === 'min') handlePaneStateChange('console', 'restore');
+                $debugger.css('height', newDebugHeight + 'px');
+                $debugger.css('flex', '0 0 ' + newDebugHeight + 'px');
+            }
+            triggerResize();
+        }
+    };
+
+    const onMouseUp = () => {
+        isDraggingV = false;
+        isDraggingH = false;
+        document.body.style.cursor = 'default';
+    };
+
+    onMount(() => {
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+    });
+
+    onCleanup(() => {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+    });
 
     return (
-        <div id="app-root" style="display: flex; flex-direction: column; height: 100vh; width: 100vw;">
+        <div id="app-root" class={styles.app}>
             <MenuBar
                 menuState={menuState()}
                 onRun={props.onRun}
@@ -29,61 +159,46 @@ export const App = (props: AppProps) => {
                 onTheme={props.onTheme}
                 onWrap={props.onWrap}
             />
-            <div id="main-layout" style="flex: 1; display: flex; overflow: hidden; position: relative;">
-                <div id="vertical-container" style="display: flex; flex: 1; flex-direction: column; overflow: hidden;">
-                    <div id="top-container" style="display: flex; flex: 1; flex-direction: row; overflow: hidden;">
-                        <div id="editor-pane" class="pane">
-                            <div class="pane-header">
-                                <div class="pane-title-area">
-                                    <div class="pane-toggle-group">
-                                        <button class="pane-btn btn-min" title="Minimize" data-action="minimize"></button>
-                                        <button class="pane-btn btn-restore" title="Restore" data-action="restore"></button>
-                                        <button class="pane-btn btn-max" title="Maximize" data-action="maximize"></button>
-                                    </div>
-                                    <span>Source Code</span>
-                                </div>
-                                <div class="pane-controls" id="editor-zoom-root"></div>
-                            </div>
-                            <div id="editor" class="pane-content"></div>
-                        </div>
-                        <div class="splitter horizontal" id="v-split"></div>
-                        <div id="debugger-pane" class="pane">
-                            <div class="pane-header">
-                                <div class="pane-title-area">
-                                    <div class="pane-toggle-group">
-                                        <button class="pane-btn btn-min" title="Minimize" data-action="minimize"></button>
-                                        <button class="pane-btn btn-restore" title="Restore" data-action="restore"></button>
-                                        <button class="pane-btn btn-max" title="Maximize" data-action="maximize"></button>
-                                    </div>
-                                    <span>Debugger</span>
-                                </div>
-                                <div class="pane-controls" id="debugger-zoom-root"></div>
-                            </div>
-                            <div id="debugger-content" class="pane-content"></div>
-                        </div>
-                    </div>
-                    <div class="splitter vertical" id="h-split"></div>
-                    <div id="console-pane" class="pane">
-                        <div class="pane-header">
-                            <div class="pane-title-area">
-                                <div class="pane-toggle-group">
-                                    <button class="pane-btn btn-min" title="Minimize" data-action="minimize"></button>
-                                    <button class="pane-btn btn-restore" title="Restore" data-action="restore"></button>
-                                    <button class="pane-btn btn-max" title="Maximize" data-action="maximize"></button>
-                                </div>
-                                <span>Console / REPL</span>
-                            </div>
-                            <div class="pane-controls">
-                                <div id="console-zoom-root"></div>
-                                <button class="icon-btn" id="console-clear" title="Clear Console">⊘</button>
-                            </div>
-                        </div>
-                        <div id="console-output" class="pane-content"></div>
-                        <div class="console-input-container" style="padding: 5px; border-top: 1px solid var(--border-color);">
-                            <span style="color: var(--accent-color);">{">"}</span>
-                            <input type="text" id="repl-input" />
-                        </div>
-                    </div>
+            <div id="main-layout" class={styles.mainLayout}>
+                <EditorPane
+                    state={paneStates.editor}
+                    onStateChange={(s) => handlePaneStateChange('editor', s)}
+                    onZoom={props.onEditorZoom}
+                />
+
+                <div
+                    class={`${styles.splitter} ${styles.vSplit}`}
+                    id="v-split"
+                    onMouseDown={onMouseDownV}
+                    style={{ display: (paneStates.editor === 'max' || paneStates.editor === 'min') ? 'none' : 'block' }}
+                ></div>
+
+                <div id="vertical-container"
+                    class={styles.verticalContainer}
+                    style={{
+                        flex: paneStates.editor === 'max' ? '0 0 32px' : '1'
+                    }}
+                >
+                    <DebuggerPane
+                        state={paneStates.debugger}
+                        onStateChange={(s) => handlePaneStateChange('debugger', s)}
+                        onZoom={props.onDebuggerZoom}
+                        orientation={paneStates.editor === 'max' ? 'vertical' : 'horizontal'}
+                    />
+
+                    <div
+                        class={`${styles.splitter} ${styles.hSplit}`}
+                        id="h-split"
+                        onMouseDown={onMouseDownH}
+                        style={{ display: (paneStates.console === 'max' || paneStates.console === 'min' || paneStates.debugger === 'max' || paneStates.editor === 'max') ? 'none' : 'block' }}
+                    ></div>
+
+                    <ConsolePane
+                        state={paneStates.console}
+                        onStateChange={(s) => handlePaneStateChange('console', s)}
+                        onZoom={props.onConsoleZoom}
+                        orientation={paneStates.editor === 'max' ? 'vertical' : 'horizontal'}
+                    />
                 </div>
             </div>
         </div>

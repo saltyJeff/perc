@@ -1,5 +1,6 @@
 import { createSignal } from 'solid-js';
-import { Switch, Match } from "solid-js"
+import { Switch, Match } from "solid-js";
+import styles from './MenuBar.module.css';
 
 interface MenuBarProps {
     menuState: 'idle' | 'running' | 'debugging';
@@ -26,27 +27,31 @@ export const MenuBar = (props: MenuBarProps) => {
         props.onWrap(newWrap);
     }
     return (
-        <div class="menu-bar">
-            <div class="logo">PerC IDE</div>
-            <div class="menu-actions">
+        <div class={`${styles.menuBar} menu-bar`}>
+            <div class={styles.logo}>PerC IDE</div>
+
+            <div class={styles.menuActions}>
                 <Switch>
-                    <Match when={props.menuState == 'idle'}>
-                        <button class="menu-btn run-btn" onClick={props.onRun}><span>▶</span>Run</button>
-                        <button class="menu-btn" onClick={props.onBuild}>🔨 Build</button>
+                    <Match when={props.menuState === 'idle'}>
+                        <button class={`${styles.menuBtn} ${styles.runBtn}`} onClick={props.onRun}><span>▶</span>Run</button>
+                        <button class={styles.menuBtn} onClick={props.onBuild}>🔨 Build</button>
                     </Match>
-                    <Match when={props.menuState == 'running' || props.menuState == 'debugging'}>
-                        <button class="menu-btn stop-btn" onClick={props.onStop}>🛑 Stop</button>
+                    <Match when={props.menuState === 'running'}>
+                        <button class={`${styles.menuBtn} ${styles.stopBtn}`} onClick={props.onStop}>🛑 Stop</button>
                     </Match>
-                    <Match when={props.menuState == 'debugging'}>
-                        <button class="menu-btn" onClick={props.onStep}>⏯ Step</button>
-                        <button class="menu-btn" onClick={props.onContinue}>⏩ Continue</button>
+                    <Match when={props.menuState === 'debugging'}>
+                        <button class={`${styles.menuBtn} ${styles.stopBtn}`} onClick={props.onStop}>🛑 Stop</button>
+                        <button class={styles.menuBtn} onClick={props.onStep}>⏯ Step</button>
+                        <button class={styles.menuBtn} onClick={props.onContinue}>⏩ Continue</button>
                     </Match>
                 </Switch>
             </div>
-            <div class="menu-spacer"></div>
-            <div class="menu-options">
-                <button class="menu-btn" onClick={toggleTheme}>Theme: {theme() == 'light' ? "☀️" : "🌙"}</button>
-                <button class="menu-btn" onClick={toggleWrap}>Wrap: {wrap() == 'on' ? "On" : "Off"}</button>
+
+            <div class={styles.menuSpacer}></div>
+
+            <div class={styles.menuOptions}>
+                <button class={styles.menuBtn} onClick={toggleTheme}>Theme: {theme() === 'light' ? "☀️" : "🌙"}</button>
+                <button class={styles.menuBtn} onClick={toggleWrap}>Wrap: {wrap() === 'on' ? "On" : "Off"}</button>
             </div>
         </div>
     )

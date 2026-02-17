@@ -1,0 +1,84 @@
+.pane {
+    background-color: var(--panel-bg);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.header {
+    background-color: var(--header-bg);
+    padding: 0 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    user-select: none;
+    height: 32px;
+    flex-shrink: 0;
+    color: var(--header-fg);
+}
+
+.titleArea {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.content {
+    flex: 1;
+    overflow: auto;
+    position: relative;
+}
+
+.maximized {
+    flex: 100 1 auto !important;
+    width: 100% !important;
+    height: 100% !important;
+    z-index: 50;
+}
+
+.collapsed {
+    flex: 0 0 32px !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
+    overflow: hidden;
+}
+
+.collapsed .content,
+.collapsed .controls {
+    display: none;
+}
+
+/* Vertical text for collapsed side-panes */
+.horizontalContainer .collapsed .header {
+    height: 100%;
+    padding: 10px 0;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+
+.horizontalContainer .collapsed .titleArea {
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: center;
+    gap: 12px;
+    margin-top: 15px;
+}
+
+.horizontalContainer .collapsed .titleArea>span {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transform: rotate(180deg);
+}

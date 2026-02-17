@@ -15,7 +15,6 @@ import './debugger/debugger.css';
 import './ui/perc_value.css';
 import { render } from 'solid-js/web';
 import { onMount } from 'solid-js';
-import { ZoomControl } from './ui/ZoomControl';
 import { standardBuiltins } from './vm/builtins';
 import { createConsoleBuiltins } from './console/builtins';
 import { createGuiBuiltins } from './gui_window/builtins';
@@ -61,8 +60,7 @@ $(() => {
             debug.clearVariables();
             debug.updateCurrentExpression(null);
         }
-        $('#debugger-pane').addClass('collapsed');
-        $('.pane').each(function () { updatePaneButtons($(this)); });
+        if ((window as any).setPaneState) (window as any).setPaneState('debugger', 'min');
     };
 
     const runVM = async () => {
@@ -77,8 +75,7 @@ $(() => {
             if (editor) editor.enter_run_mode();
             updateToolbarState('running');
             if (debug) debug.setStatus('Running...');
-            $('#debugger-pane').addClass('collapsed');
-            $('.pane').each(function () { updatePaneButtons($(this)); });
+            if ((window as any).setPaneState) (window as any).setPaneState('debugger', 'min');
 
             executionInterval = setInterval(() => {
                 if (!isRunning || isPaused || isWaitingForInput) {
@@ -167,8 +164,7 @@ $(() => {
 
     const handleContinue = () => {
         vm.in_debug_mode = false;
-        $('#debugger-pane').addClass('collapsed');
-        $('.pane').each(function () { updatePaneButtons($(this)); });
+        if ((window as any).setPaneState) (window as any).setPaneState('debugger', 'min');
         runVM();
     };
 
@@ -194,14 +190,6 @@ $(() => {
         }
     };
 
-    const updatePaneButtons = (pane: JQuery) => {
-        const isMax = pane.hasClass('maximized');
-        const isMin = pane.hasClass('collapsed');
-        const isNormal = !isMax && !isMin;
-        pane.find('.btn-min').prop('disabled', isMin);
-        pane.find('.btn-restore').prop('disabled', isNormal);
-        pane.find('.btn-max').prop('disabled', isMax);
-    };
 
     // Mount Solid App
     const appRoot = document.getElementById('app');
@@ -252,8 +240,7 @@ $(() => {
                         isPaused = true;
                         updateToolbarState('paused');
                         debug.setStatus('Paused (Debugger)');
-                        $('#debugger-pane').removeClass('collapsed');
-                        $('.pane').each(function () { updatePaneButtons($(this)); });
+                        if ((window as any).setPaneState) (window as any).setPaneState('debugger', 'restore');
                         editor.enter_debug_mode();
                     },
                     on_state_dump: () => {
@@ -442,102 +429,6 @@ while(true) then {
                     }
                 };
 
-                // Zoom Controls
-                const editorZoomRoot = document.getElementById('editor-zoom-root');
-                if (editorZoomRoot) {
-                    render(() => <ZoomControl onZoom={(size) => editor.setFontSize(size)} minZoomPct={25} maxZoomPct={500} />, editorZoomRoot);
-                }
-
-                const debuggerZoomRoot = document.getElementById('debugger-zoom-root');
-                if (debuggerZoomRoot) {
-                    render(() => <ZoomControl onZoom={(size) => $('#debugger-content').css('font-size', (size * 14 / 100) + 'px')} minZoomPct={25} maxZoomPct={500} />, debuggerZoomRoot);
-                }
-
-                const consoleZoomRoot = document.getElementById('console-zoom-root');
-                if (consoleZoomRoot) {
-                    render(() => <ZoomControl onZoom={(size) => $('#console-output').css('font-size', (size * 14 / 100) + 'px')} minZoomPct={25} maxZoomPct={500} />, consoleZoomRoot);
-                }
-
-                // Initial pane status
-                $('.pane').each(function () {
-                    updatePaneButtons($(this));
-                });
-
-                $('.pane-btn').on('click', function () {
-                    const action = $(this).data('action');
-                    const pane = $(this).closest('.pane');
-                    const container = pane.parent();
-                    let siblings = container.children('.pane').not(pane);
-                    if (container.attr('id') === 'vertical-container') {
-                        siblings = siblings.add(container.children('#top-container'));
-                    }
-                    const splitters = container.children('.splitter');
-                    pane.removeClass('maximized collapsed');
-                    siblings.removeClass('collapsed maximized');
-                    splitters.show();
-
-                    if (action === 'maximize') {
-                        pane.addClass('maximized');
-                        siblings.addClass('collapsed');
-                        splitters.hide();
-                    } else if (action === 'minimize') {
-                        pane.addClass('collapsed');
-                    }
-                    container.find('.pane').each(function () {
-                        updatePaneButtons($(this));
-                    });
-                    editor.resize();
-                });
-
-                // Resizing logic (from legacy)
-                let isDraggingV = false;
-                $('#v-split').on('mousedown', (e) => {
-                    isDraggingV = true;
-                    $('body').css('cursor', 'col-resize');
-                    e.preventDefault();
-                });
-
-                let isDraggingH = false;
-                $('#h-split').on('mousedown', (e) => {
-                    isDraggingH = true;
-                    $('body').css('cursor', 'row-resize');
-                    e.preventDefault();
-                });
-
-                $(document).on('mousemove', (e) => {
-                    if (isDraggingV) {
-                        const containerWidth = $('#top-container').width() || 0;
-                        const newDebugWidth = containerWidth - e.clientX;
-                        const $debugger = $('#debugger-pane');
-                        if (newDebugWidth < 60) {
-                            $debugger.addClass('collapsed').css('width', '32px');
-                        } else {
-                            $debugger.removeClass('collapsed').css('width', newDebugWidth + 'px');
-                        }
-                        updatePaneButtons($debugger);
-                        editor.resize();
-                    }
-                    if (isDraggingH) {
-                        const containerHeight = $('#vertical-container').height() || 0;
-                        const menubarHeight = $('.menu-bar').height() || 0;
-                        const newConsoleHeight = containerHeight - (e.clientY - menubarHeight);
-                        const $console = $('#console-pane');
-                        if (newConsoleHeight < 50) {
-                            $console.addClass('collapsed').css('height', '32px');
-                        } else {
-                            $console.removeClass('collapsed').css('height', newConsoleHeight + 'px');
-                        }
-                        updatePaneButtons($console);
-                        editor.resize();
-                    }
-                });
-
-                $(document).on('mouseup', () => {
-                    isDraggingV = false;
-                    isDraggingH = false;
-                    $('body').css('cursor', 'default');
-                });
-
                 appConsole.status("Welcome to PerC IDE v0.1");
             });
 
@@ -553,6 +444,9 @@ while(true) then {
                     if (editor) editor.setTheme(isDark ? 'dark' : 'light');
                 }}
                 onWrap={(w) => editor && editor.setWordWrap(w === 'on')}
+                onEditorZoom={(size) => editor.setFontSize(size)}
+                onDebuggerZoom={(size) => $('#debugger-content').css('font-size', (size * 14 / 100) + 'px')}
+                onConsoleZoom={(size) => $('#console-output').css('font-size', (size * 14 / 100) + 'px')}
             />;
         }, appRoot);
     }

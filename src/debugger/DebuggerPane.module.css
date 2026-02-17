@@ -1,0 +1,115 @@
+.debuggerPane {
+    flex: 1;
+    background-color: var(--panel-bg);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.header {
+    background-color: var(--header-bg);
+    padding: 0 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    user-select: none;
+    height: 32px;
+    flex-shrink: 0;
+    color: var(--header-fg);
+}
+
+.titleArea {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.content {
+    flex: 1;
+    overflow: auto;
+    position: relative;
+}
+
+.maximized {
+    flex: 100 1 auto !important;
+    z-index: 100;
+}
+
+.collapsed {
+    flex: 0 0 32px !important;
+    height: 32px !important;
+    min-height: 32px !important;
+    max-height: 32px !important;
+    overflow: hidden;
+}
+
+.collapsed .content,
+.collapsed .controls {
+    display: none;
+}
+
+.vertical {
+    flex: 1 !important;
+    width: 32px !important;
+    min-width: 32px !important;
+    max-width: 32px !important;
+}
+
+.vertical .header {
+    height: 100%;
+    padding: 10px 0;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+
+.vertical .titleArea {
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: center;
+    gap: 12px;
+    margin-top: 15px;
+}
+
+.vertical .titleArea>span {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transform: rotate(180deg);
+}
+
+.vertical .content,
+.vertical .controls {
+    display: none;
+}
+
+.collapsed .header {
+    height: 32px;
+    padding: 0 10px;
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+.collapsed .titleArea {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    margin-top: 0;
+}
+
+.collapsed .titleArea>span {
+    writing-mode: horizontal-tb;
+    transform: none;
+}

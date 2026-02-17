@@ -1,0 +1,119 @@
+.menuBar {
+    height: 38px;
+    background-color: var(--header-bg);
+    color: var(--header-fg);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+    user-select: none;
+    font-size: 14px;
+    gap: 12px;
+}
+
+.logo {
+    font-weight: 800;
+    margin-right: 24px;
+    font-size: 1.2em;
+    color: var(--accent-color);
+    letter-spacing: 0.05em;
+    text-shadow: 0 0 10px rgba(0, 122, 204, 0.3);
+}
+
+.menuActions {
+    display: flex;
+    gap: 8px;
+}
+
+.menuSpacer {
+    flex: 1;
+}
+
+.menuOptions {
+    display: flex;
+    gap: 8px;
+}
+
+.menuBtn {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    color: var(--fg-color);
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.menuBtn:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.1);
+    transform: translateY(-1px);
+}
+
+.menuBtn:active {
+    background-color: var(--accent-color);
+    color: white;
+    transform: translateY(0);
+}
+
+.runBtn {
+    color: #4EC9B0;
+    font-weight: 600;
+}
+
+.runBtn span {
+    font-size: 1.2em;
+}
+
+.stopBtn {
+    color: #ff5252;
+}
+
+.indicator {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    text-transform: uppercase;
+    font-weight: 800;
+    background: rgba(0, 0, 0, 0.2);
+    letter-spacing: 0.1em;
+}
+
+.debugging {
+    color: #ff9800;
+    box-shadow: 0 0 5px rgba(255, 152, 0, 0.2);
+}
+
+.running {
+    color: #4caf50;
+    box-shadow: 0 0 5px rgba(76, 175, 80, 0.2);
+}
+
+.toolbarSeparator {
+    width: 1px;
+    height: 20px;
+    background-color: var(--border-color);
+    margin: 0 8px;
+    opacity: 0.5;
+}
+
+.select {
+    background: var(--input-bg);
+    color: var(--input-fg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 13px;
+    outline: none;
+    cursor: pointer;
+}
+
+.select:hover {
+    border-color: var(--accent-color);
+}
