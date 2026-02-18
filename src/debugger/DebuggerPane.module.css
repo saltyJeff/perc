@@ -66,6 +66,9 @@
     width: 32px !important;
     min-width: 32px !important;
     max-width: 32px !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
 }
 
 .vertical .header {
@@ -79,8 +82,11 @@
     display: flex;
     flex-direction: column-reverse;
     align-items: center;
+    justify-content: space-between;
     gap: 12px;
-    margin-top: 15px;
+    height: 100%;
+    padding: 12px 0;
+    width: 100%;
 }
 
 .vertical .titleArea>span {

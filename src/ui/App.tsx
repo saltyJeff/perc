@@ -176,7 +176,8 @@ export const App = (props: AppProps) => {
                 <div id="vertical-container"
                     class={styles.verticalContainer}
                     style={{
-                        flex: paneStates.editor === 'max' ? '0 0 32px' : '1'
+                        flex: paneStates.editor === 'max' ? '0 0 32px' : '1',
+                        gap: paneStates.editor === 'max' ? '20px' : '0'
                     }}
                 >
                     <DebuggerPane
