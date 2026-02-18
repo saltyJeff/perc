@@ -52,51 +52,16 @@ body,
 html {
   margin: 0;
   padding: 0;
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  height: 100vh;
   font-family: var(--font-family);
   background-color: var(--bg-color);
   color: var(--fg-color);
-  overflow: hidden;
   transition: background-color 0.2s, color 0.2s;
 }
 
 #app {
   display: flex;
-  flex-direction: column;
-  height: 100vh;
-  width: 100vw;
+  width: 100%;
+  height: 100%;
 }
-
-/* Main Layout Area */
-#main-layout {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-  position: relative;
-}
-
-#app {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  width: 100vw;
-}
-
-.pane-content {
-  flex: 1;
-  overflow: auto;
-  position: relative;
-}
-
-/* Debugger Styles */
-/* Moved to debugger/debugger.css */
-
-/* Console Styles */
-/* Moved to console/console.css */
-
-/* Execution Highlight */
-/* Moved to editor/editor.css */
-
-/* Debugger Tables & Folding */
-/* Moved to debugger/debugger.css */
