@@ -1,264 +1,135 @@
 import { createStore } from "solid-js/store";
 import { Console } from "../console";
 
-// This saves your custom dragged sizes so 'restore' doesn't wipe them out
-const customSizes = {
-    code: '1',
-    debugconsole: '1',
-    debugger: '1',
-    console: '1'
-};
-
-function applyLayout(action, sourcePane) {
-    let mode = 'split';
-
-    if (action === 'max') {
-        mode = sourcePane + '-max';
-    } else if (action === 'min') {
-        mode = sourcePane + '-min';
-    } else if (action === 'restore') {
-        mode = 'split';
-    }
-
-    const codeEl = document.getElementById('code');
-    const debugconsoleEl = document.getElementById('debugconsole');
-    const debuggerEl = document.getElementById('debugger');
-    const consoleEl = document.getElementById('console');
-
-    const setMenu = (id, isClosed, activeState) => {
-        const el = document.getElementById(id);
-        const menu = el.querySelector('.menu-bar');
-
-        if (isClosed) menu.classList.add('closed');
-        else menu.classList.remove('closed');
-
-        menu.querySelector('.max').disabled = (activeState === 'max');
-        menu.querySelector('.min').disabled = (activeState === 'min');
-        menu.querySelector('.restore').disabled = (activeState === 'restore');
-    };
-
-    // --- THE LAYOUT RULES ---
-    if (mode === 'code-max') {
-        codeEl.style.flex = '1';
-        debugconsoleEl.style.flex = '0 0 45px';
-        debuggerEl.style.flex = customSizes.debugger; // Maintain their vertical split!
-        consoleEl.style.flex = customSizes.console;
-
-        setMenu('code', false, 'max');
-        setMenu('debugger', true, 'min');
-        setMenu('console', true, 'min');
-    }
-    else if (mode === 'debugger-max') {
-        codeEl.style.flex = '0 0 45px';
-        debugconsoleEl.style.flex = '1';
-        debuggerEl.style.flex = '1';
-        consoleEl.style.flex = '0 0 35px';
-
-        setMenu('code', true, 'min');
-        setMenu('debugger', false, 'max');
-        setMenu('console', false, 'min');
-    }
-    else if (mode === 'console-max') {
-        codeEl.style.flex = '0 0 45px';
-        debugconsoleEl.style.flex = '1';
-        debuggerEl.style.flex = '0 0 35px';
-        consoleEl.style.flex = '1';
-
-        setMenu('code', true, 'min');
-        setMenu('debugger', false, 'min');
-        setMenu('console', false, 'max');
-    }
-    else if (mode === 'code-min') {
-        codeEl.style.flex = '0 0 45px';
-        debugconsoleEl.style.flex = '1';
-        debuggerEl.style.flex = customSizes.debugger;
-        consoleEl.style.flex = customSizes.console;
-
-        setMenu('code', true, 'min');
-        setMenu('debugger', false, 'restore');
-        setMenu('console', false, 'restore');
-    }
-    else if (mode === 'debugger-min') {
-        codeEl.style.flex = customSizes.code;
-        debugconsoleEl.style.flex = customSizes.debugconsole;
-        debuggerEl.style.flex = '0 0 35px';
-        consoleEl.style.flex = '1';
-
-        setMenu('code', false, 'restore');
-        setMenu('debugger', false, 'min');
-        setMenu('console', false, 'max');
-    }
-    else if (mode === 'console-min') {
-        codeEl.style.flex = customSizes.code;
-        debugconsoleEl.style.flex = customSizes.debugconsole;
-        debuggerEl.style.flex = '1';
-        consoleEl.style.flex = '0 0 35px';
-
-        setMenu('code', false, 'restore');
-        setMenu('debugger', false, 'max');
-        setMenu('console', false, 'min');
-    }
-    else {
-        // RESTORE - Pulls from memory instead of forcing 'flex: 1'
-        codeEl.style.flex = customSizes.code;
-        debugconsoleEl.style.flex = customSizes.debugconsole;
-        debuggerEl.style.flex = customSizes.debugger;
-        consoleEl.style.flex = customSizes.console;
-
-        setMenu('code', false, 'restore');
-        setMenu('debugger', false, 'restore');
-        setMenu('console', false, 'restore');
-    }
-}
-
-// Attach listeners to buttons
-document.querySelectorAll('.menu-bar button').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-        const action = e.target.className;
-        const sourcePane = e.target.closest('.menu-bar').parentElement.id;
-        applyLayout(action, sourcePane);
-    });
-});
-
-// --- DRAG TO RESIZE LOGIC ---
-const codeDivider = document.getElementById('codedivider');
-const debuggerDivider = document.getElementById('debuggerdivider');
-const body = document.body;
-
-let isDraggingCol = false;
-let isDraggingRow = false;
-
-codeDivider.addEventListener('mousedown', () => {
-    isDraggingCol = true;
-    body.classList.add('no-select', 'is-dragging');
-    body.style.cursor = 'col-resize';
-});
-
-debuggerDivider.addEventListener('mousedown', () => {
-    isDraggingRow = true;
-    body.classList.add('no-select', 'is-dragging');
-    body.style.cursor = 'row-resize';
-});
-
-document.addEventListener('mousemove', (e) => {
-    if (isDraggingCol) {
-        document.getElementById('code').style.flex = `0 0 ${e.clientX}px`;
-        document.getElementById('debugconsole').style.flex = '1';
-    }
-    if (isDraggingRow) {
-        const containerBox = document.getElementById('debugconsole').getBoundingClientRect();
-        const newHeight = e.clientY - containerBox.top;
-        document.getElementById('debugger').style.flex = `0 0 ${newHeight}px`;
-        document.getElementById('console').style.flex = '1';
-    }
-});
-
-// When you stop dragging, save the sizes to memory!
-document.addEventListener('mouseup', () => {
-    if (isDraggingCol || isDraggingRow) {
-        isDraggingCol = false;
-        isDraggingRow = false;
-        body.classList.remove('no-select', 'is-dragging');
-        body.style.cursor = 'default';
-
-        // Update the memory cache with the new inline styles
-        customSizes.code = document.getElementById('code').style.flex || '1';
-        customSizes.debugconsole = document.getElementById('debugconsole').style.flex || '1';
-        customSizes.debugger = document.getElementById('debugger').style.flex || '1';
-        customSizes.console = document.getElementById('console').style.flex || '1';
-    }
-});
-
-// Run once on load
-applyLayout('restore', 'all');
-
 export enum PaneState {
-    MIN, MAX, RESTORE
+    MIN = "min",
+    MAX = "max",
+    RESTORE = "restore"
 }
+
 export enum ChildPaneState {
-    DEBUGGER, CONSOLE, BOTH
+    DEBUGGER = "debugger",
+    CONSOLE = "console",
+    BOTH = "both"
 }
+
 export enum VMState {
-    IDLE,
-    RUNNING,
-    DEBUGGING
+    IDLE = "idle",
+    RUNNING = "running",
+    DEBUGGING = "debugging"
 }
 
 export enum PaneId {
-    EDITOR, DEBUG, CONSOLE
+    EDITOR = "editor",
+    DEBUG = "debug",
+    CONSOLE = "console"
 }
+
 export enum PaneAction {
-    MIN, MAX, RESTORE
+    MIN = "min",
+    MAX = "max",
+    RESTORE = "restore"
 }
+
 export enum DividerId {
-    EDITOR_DC,
-    DC
+    EDITOR_DC = "editor_dc",
+    DC = "dc"
 }
 
 function createAppStore() {
     const [layout, setLayout] = createStore({
         editor: PaneState.RESTORE,
-        e_dc_divider: -1,
         dc: {
             state: PaneState.RESTORE,
-            dc_divider: -1,
             child: ChildPaneState.BOTH
-        }
+        },
+        // hold the state of the divider positions as percentages (0-1)
+        editorSplit: 0.5,
+        dcSplit: 0.5,
     });
-    const [vm, setVM] = createStore<{ vm: VMState }>({
-        vm: VMState.IDLE,
+
+    const [vm, setVM] = createStore<{ state: VMState }>({
+        state: VMState.IDLE,
     });
+
     return {
-        layout, vm, setVM,
+        layout,
+        vm,
+        setVM: (state: VMState) => setVM("state", state),
+
         paneAction: (pane: PaneId, action: PaneAction) => {
-            if (pane == PaneId.CONSOLE) {
-                switch (action) {
-                    case PaneAction.MIN:
-                        setLayout("editor", PaneState.MIN)
-                        setLayout("dc", "state", PaneState.MAX)
-                        break;
-                    case PaneAction.MAX:
-                        setLayout("editor", PaneState.MAX)
-                        setLayout("dc", "state", PaneState.MIN)
-                        break;
-                    case PaneAction.RESTORE:
-                        setLayout("editor", PaneState.RESTORE)
-                        setLayout("dc", "state", PaneState.RESTORE)
-                        break;
+            // --- THE LAYOUT RULES (mirrored from demo.html) ---
+            if (action === PaneAction.MAX) {
+                if (pane === PaneId.EDITOR) {
+                    setLayout({
+                        editor: PaneState.MAX,
+                        dc: { state: PaneState.MIN, child: layout.dc.child }
+                    });
+                } else if (pane === PaneId.DEBUG) {
+                    setLayout({
+                        editor: PaneState.MIN,
+                        dc: { state: PaneState.MAX, child: ChildPaneState.DEBUGGER }
+                    });
+                } else if (pane === PaneId.CONSOLE) {
+                    setLayout({
+                        editor: PaneState.MIN,
+                        dc: { state: PaneState.MAX, child: ChildPaneState.CONSOLE }
+                    });
                 }
-                return;
-            }
-            if (layout.dc.state == PaneState.MIN) {
-                return;
-            }
-            if (pane == PaneId.DEBUG) {
-                switch (action) {
-                    case PaneAction.MIN:
-                        setLayout("dc", "child", ChildPaneState.CONSOLE)
-                        break;
-                    case PaneAction.MAX:
-                        setLayout("dc", "child", ChildPaneState.DEBUGGER)
-                        break;
-                    case PaneAction.RESTORE:
-                        setLayout("dc", "child", ChildPaneState.BOTH)
-                        break;
+            } else if (action === PaneAction.MIN) {
+                if (pane === PaneId.EDITOR) {
+                    setLayout({
+                        editor: PaneState.MIN,
+                        dc: { state: PaneState.MAX, child: layout.dc.child }
+                    });
+                } else if (pane === PaneId.DEBUG) {
+                    setLayout({
+                        editor: layout.editor === PaneState.MAX ? PaneState.MAX : PaneState.RESTORE,
+                        dc: {
+                            state: layout.editor === PaneState.MAX ? PaneState.MIN : PaneState.RESTORE,
+                            child: ChildPaneState.CONSOLE
+                        }
+                    });
+                } else if (pane === PaneId.CONSOLE) {
+                    setLayout({
+                        editor: layout.editor === PaneState.MAX ? PaneState.MAX : PaneState.RESTORE,
+                        dc: {
+                            state: layout.editor === PaneState.MAX ? PaneState.MIN : PaneState.RESTORE,
+                            child: ChildPaneState.DEBUGGER
+                        }
+                    });
                 }
-            }
-            if (pane == PaneId.EDITOR) {
-                switch (action) {
-                    case PaneAction.MIN:
-                        setLayout("editor", PaneState.MIN)
-                        break;
-                    case PaneAction.MAX:
-                        setLayout("editor", PaneState.MAX)
-                        break;
-                    case PaneAction.RESTORE:
-                        setLayout("editor", PaneState.RESTORE)
-                        break;
+            } else if (action === PaneAction.RESTORE) {
+                if (pane === PaneId.EDITOR) {
+                    setLayout({
+                        editor: PaneState.RESTORE,
+                        dc: { state: PaneState.RESTORE, child: layout.dc.child }
+                    });
+                } else {
+                    // Restoring Debug or Console restores the internal split and the top level
+                    setLayout({
+                        editor: PaneState.RESTORE,
+                        dc: { state: PaneState.RESTORE, child: ChildPaneState.BOTH }
+                    });
                 }
             }
         },
-        dragAction: (divider: DividerId, e: Event) => { }
+
+        updateSize: (divider: DividerId, ratio: number) => {
+            if (divider === DividerId.EDITOR_DC) {
+                setLayout("editorSplit", ratio);
+                // If we are dragging, we should move to restore state to allow the size to take effect
+                if (layout.editor !== PaneState.RESTORE || layout.dc.state !== PaneState.RESTORE) {
+                    setLayout({ editor: PaneState.RESTORE, dc: { ...layout.dc, state: PaneState.RESTORE } });
+                }
+            } else {
+                setLayout("dcSplit", ratio);
+                // internal split restore
+                if (layout.dc.child !== ChildPaneState.BOTH) {
+                    setLayout("dc", "child", ChildPaneState.BOTH);
+                }
+            }
+        }
     }
 }
 
