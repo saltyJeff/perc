@@ -5,6 +5,7 @@ import { EditorState, StateEffect, StateField, Compartment } from "@codemirror/s
 import type { StateEffectType } from "@codemirror/state";
 import { githubDark } from "@fsegurai/codemirror-theme-github-dark";
 import { githubLight } from "@fsegurai/codemirror-theme-github-light";
+import { monokai } from "@fsegurai/codemirror-theme-monokai";
 import { perc } from "./perc-language";
 import { indentWithTab } from "@codemirror/commands";
 import { indentUnit } from "@codemirror/language";
@@ -52,7 +53,7 @@ export class Editor {
     private builtins: string[] = ["print", "println"];
     private readOnly = false;
     private fontSize = 14;
-    private theme: 'dark' | 'light' = 'dark';
+    private theme: 'dark' | 'light' | 'contrast' = 'dark';
     private wordWrap = true;
     private fontSizeCompartment = new Compartment();
 
@@ -76,7 +77,7 @@ export class Editor {
                 indentUnit.of("    "),
                 autocompletion({ activateOnTyping: true }),
                 perc(this.builtins, this.variableProvider),
-                this.theme === 'dark' ? githubDark : githubLight,
+                this.theme === 'dark' ? githubDark : (this.theme === 'contrast' ? monokai : githubLight),
                 EditorState.readOnly.of(this.readOnly),
                 this.wordWrap ? EditorView.lineWrapping : [],
                 debugHighlightField,
@@ -128,7 +129,7 @@ export class Editor {
         this.updateExtensions();
     }
 
-    public setTheme(theme: 'dark' | 'light') {
+    public setTheme(theme: 'dark' | 'light' | 'contrast') {
         this.theme = theme;
         this.updateExtensions();
     }

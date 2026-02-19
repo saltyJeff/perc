@@ -42,8 +42,17 @@
 
 .content {
     flex: 1;
-    overflow: auto;
+    overflow: hidden;
+    /* Prevent content itself from scrolling, let children handle it */
     position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.logArea {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px;
     display: flex;
     flex-direction: column;
 }
@@ -91,7 +100,8 @@
 
 .vertical .content,
 .vertical .controls,
-.vertical .consoleInputContainer {
+.vertical .consoleInputContainer,
+.vertical .logArea {
     display: none;
 }
 
@@ -99,6 +109,8 @@
     padding: 8px 12px;
     border-top: 1px solid var(--border-color);
     background: var(--panel-bg);
+    flex-shrink: 0;
+    /* Ensure input doesn't shrink */
 }
 
 .prompt {

@@ -4,22 +4,27 @@ import { appStore } from './AppStore';
 import styles from './MenuBar.module.css';
 
 interface MenuBarProps {
-    menuState: 'idle' | 'running' | 'debugging';
+    menuState: 'idle' | 'running' | 'debugging' | 'input';
     onRun: () => void;
     onBuild: () => void;
     onStep: () => void;
     onContinue: () => void;
     onStop: () => void;
-    onTheme: (theme: 'light' | 'dark') => void;
+    onTheme: (theme: 'light' | 'dark' | 'contrast') => void;
     onWrap: (wrap: 'on' | 'off') => void;
 }
 
 export const MenuBar = (props: MenuBarProps) => {
-    const [theme, setTheme] = createSignal<'light' | 'dark'>('dark');
+    const [theme, setTheme] = createSignal<'light' | 'dark' | 'contrast'>('dark');
     function toggleTheme() {
-        const newTheme = theme() === 'light' ? 'dark' : 'light';
-        setTheme(newTheme);
-        props.onTheme(newTheme);
+        const current = theme();
+        let next: 'light' | 'dark' | 'contrast';
+        if (current === 'light') next = 'dark';
+        else if (current === 'dark') next = 'contrast';
+        else next = 'light';
+
+        setTheme(next);
+        props.onTheme(next);
     }
     const [wrap, setWrap] = createSignal<'on' | 'off'>('on');
     function toggleWrap() {
@@ -65,8 +70,10 @@ export const MenuBar = (props: MenuBarProps) => {
 
                 <div class={styles.menuOptions}>
                     <button class={styles.menuBtn} onClick={() => appStore.resetLayout()}>Restore Layout</button>
-                    <button class={styles.menuBtn} onClick={toggleTheme} aria-label={`Switch to ${theme() === 'light' ? 'dark' : 'light'} theme`}>
-                        Theme: <span aria-hidden="true">{theme() === 'light' ? "☀️" : "🌙"}</span>
+                    <button class={styles.menuBtn} onClick={toggleTheme} aria-label={`Switch to next theme (current: ${theme()})`}>
+                        Theme: <span aria-hidden="true">
+                            {theme() === 'light' ? "☀️" : (theme() === 'dark' ? "🌙" : "👁️")}
+                        </span>
                     </button>
                     <button class={styles.menuBtn} onClick={toggleWrap} aria-label={`Turn word wrap ${wrap() === 'on' ? 'off' : 'on'}`}>
                         Wrap: {wrap() === 'on' ? "On" : "Off"}

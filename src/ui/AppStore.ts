@@ -2,7 +2,7 @@ import { createStore } from "solid-js/store";
 
 export type PaneId = 'editor' | 'debugger' | 'console';
 export type DividerId = 'editor_dc' | 'dc';
-export type VMState = 'idle' | 'running' | 'debugging';
+export type VMState = 'idle' | 'running' | 'debugging' | 'input';
 
 export interface AppStore {
     layout: {

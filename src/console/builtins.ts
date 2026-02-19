@@ -1,8 +1,16 @@
 import type { BuiltinFunc } from "../vm/builtins";
 import { perc_nil, perc_number, perc_string, perc_map, perc_type, perc_err } from "../vm/perc_types";
-import { Console } from "./index";
 
-export const createConsoleBuiltins = (appConsole: Console): Record<string, BuiltinFunc> => {
+export interface IConsole {
+    print: (msg: string) => void;
+    println: (msg: string) => void;
+    setTextColor: (color: string) => void;
+    error: (msg: string, location?: [number, number]) => void;
+    status: (msg: string) => void;
+    clear: () => void;
+}
+
+export const createConsoleBuiltins = (appConsole: IConsole): Record<string, BuiltinFunc> => {
     return {
         'print': (...args: perc_type[]) => {
             const msg = args.map(a => (a as any).to_string()).join(' ');

@@ -19,6 +19,10 @@ body.dark-theme {
   --log-color: #d4d4d4;
   --input-color: #aaaaaa;
   --status-color: #4EC9B0;
+  --error-color: #ff5252;
+  --warning-color: #ff9800;
+  --accent-color: #0098ff;
+  /* Increased brightness for better contrast against dark bg */
 }
 
 body.light-theme {
@@ -33,6 +37,26 @@ body.light-theme {
   --log-color: #333333;
   --input-color: #555555;
   --status-color: #008000;
+  --error-color: #cc0000;
+  --warning-color: #bf7100;
+  --accent-color: #005fa3;
+}
+
+body.contrast-theme {
+  --bg-color: #000000;
+  --fg-color: #ffffff;
+  --header-bg: #000000;
+  --header-fg: #ffffff;
+  --border-color: #ffffff;
+  --panel-bg: #000000;
+  --input-bg: #000000;
+  --input-fg: #ffffff;
+  --log-color: #ffffff;
+  --input-color: #ffff00;
+  --status-color: #00ff00;
+  --error-color: #ff0000;
+  --warning-color: #ffff00;
+  --accent-color: #ffff00;
 }
 
 .console-entry.log {

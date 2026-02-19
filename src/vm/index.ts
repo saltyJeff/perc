@@ -3,6 +3,9 @@ import { perc_type, perc_bool, perc_err, perc_closure, perc_number, perc_string,
 import type { perc_iterator } from "./perc_types.ts";
 import { Compiler } from "./compiler.ts";
 import { standardBuiltins } from "./builtins.ts";
+import { createDebugStore, DebugState } from "./DebugStore";
+
+export type { DebugState };
 
 export interface VMEventMap {
     on_frame_push: (frame: Frame) => void;
@@ -82,8 +85,13 @@ export class VM {
     private iterators: perc_iterator[] = [];
     public is_waiting_for_input: boolean = false;
     public in_debug_mode: boolean = false;
+    public debugStore: DebugState;
+    private setDebugStore: any;
 
     constructor(code: opcode[] = []) {
+        const [store, setStore] = createDebugStore();
+        this.debugStore = store;
+        this.setDebugStore = setStore;
         this.code = code;
         this.reset_state();
         this.register_builtins(standardBuiltins);
@@ -107,6 +115,15 @@ export class VM {
         // Don't clear foreign_funcs here as they are registered once
         const global_scope = new Scope();
         this.current_frame = new Frame(global_scope, -1, 0, "global");
+
+        // Reset debug store
+        this.setDebugStore({
+            currentExpression: { value: null, type: null },
+            callStack: [],
+            status: 'Idle',
+            activeRange: null
+        });
+
         // Notify debugger of the initial global frame so it can be populated
         this.events.on_frame_push?.(this.current_frame);
     }
@@ -235,7 +252,12 @@ export class VM {
         this.events = events;
     }
 
-    register_foreign(name: string, func: (...args: perc_type[]) => perc_type) {
+    public load_code(code: opcode[]) {
+        this.code = code;
+        this.reset_state();
+    }
+
+    public register_foreign(name: string, func: (...args: perc_type[]) => perc_type) {
         this.foreign_funcs.set(name, func);
     }
 
@@ -254,6 +276,7 @@ export class VM {
             // Highlight only in debug mode
             if (this.in_debug_mode) {
                 this.events.on_node_eval?.([op.src_start, op.src_end]);
+                this.setDebugStore("activeRange", [op.src_start, op.src_end]);
             }
 
             try {
@@ -299,6 +322,7 @@ export class VM {
                         this.current_frame.scope.define(op.name, init_val, [op.src_start, op.src_end]);
                         if (this.in_debug_mode) {
                             this.events.on_var_update?.(op.name, this.current_frame.scope.lookup(op.name)!, [op.src_start, op.src_end]);
+                            this.updateDebugStoreVariables(op.name, this.current_frame.scope.lookup(op.name)!, [op.src_start, op.src_end]);
                         }
                         break;
                     case 'load':
@@ -317,6 +341,7 @@ export class VM {
                         }
                         if (this.in_debug_mode) {
                             this.events.on_var_update?.(op.name, s_val, [op.src_start, op.src_end]);
+                            this.updateDebugStoreVariables(op.name, s_val, [op.src_start, op.src_end]);
                         }
                         break;
                     case 'binary_op':
@@ -430,6 +455,7 @@ export class VM {
                         this.ip = func.addr;
                         if (this.in_debug_mode) {
                             this.events.on_frame_push?.(new_frame);
+                            this.pushDebugStoreFrame(new_frame);
                         }
                         // Check yield condition
                         if (this.should_yield(op.src_start, op.src_end, last_src_start, last_src_end)) {
@@ -450,6 +476,7 @@ export class VM {
                         this.push(ret_val);
                         if (this.in_debug_mode) {
                             this.events.on_frame_pop?.();
+                            this.popDebugStoreFrame();
                         }
                         // Check yield condition
                         if (this.should_yield(op.src_start, op.src_end, last_src_start, last_src_end)) {
@@ -581,6 +608,7 @@ export class VM {
                         this.events.on_node_eval?.([op.src_start, op.src_end]); // Highlight debugger statement
                         this.events.on_debugger?.();
                         this.events.on_state_dump?.();
+                        this.setDebugStore("status", "Paused (Debugger)");
                         yield; // Always pause on debugger
                         last_src_start = op.src_start;
                         last_src_end = op.src_end;
@@ -599,6 +627,7 @@ export class VM {
             } catch (e: any) {
                 console.error(e.message);
                 this.events.on_error?.(e.message, null);
+                this.setDebugStore("status", "Error");
                 return;
             }
 
@@ -681,6 +710,10 @@ export class VM {
         if (this.in_debug_mode) {
             this.events.on_stack_push?.(val);
             this.events.on_stack_top_update?.(val);
+            this.setDebugStore("currentExpression", {
+                value: val,
+                type: val.type
+            });
         }
     }
 
@@ -691,12 +724,65 @@ export class VM {
         // Notify top update
         if (this.in_debug_mode) {
             if (this.stack.length > 0) {
-                this.events.on_stack_top_update?.(this.stack[this.stack.length - 1]);
+                const top = this.stack[this.stack.length - 1];
+                this.events.on_stack_top_update?.(top);
+                this.setDebugStore("currentExpression", {
+                    value: top,
+                    type: top.type
+                });
             } else {
                 this.events.on_stack_top_update?.(null);
+                this.setDebugStore("currentExpression", {
+                    value: null,
+                    type: null
+                });
             }
         }
 
         return v;
+    }
+
+    private updateDebugStoreVariables(name: string, value: perc_type, range: [number, number] | null) {
+        if (!this.in_debug_mode) return;
+
+        // Update the top frame in the store
+        this.setDebugStore("callStack", 0, "variables", (vars: any) => ({
+            ...vars,
+            [name]: { value, range }
+        }));
+    }
+
+    private pushDebugStoreFrame(frame: Frame) {
+        if (!this.in_debug_mode) return;
+
+        const variables = this.get_scope_variables(frame.scope);
+        this.setDebugStore("callStack", (stack: any) => [
+            {
+                id: `frame-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                name: frame.name === 'global' ? frame.name : `${frame.name}(${frame.args.join(', ')})`,
+                args: frame.args,
+                variables,
+                open: true
+            },
+            ...stack
+        ]);
+    }
+
+    private popDebugStoreFrame() {
+        if (!this.in_debug_mode) return;
+        this.setDebugStore("callStack", (stack: any) => stack.slice(1));
+    }
+
+    public syncDebugStore() {
+        if (!this.in_debug_mode) return;
+        const frames = this.get_frames();
+        const debugFrames = frames.reverse().map(f => ({
+            id: `frame-${Math.random().toString(36).substr(2, 9)}`,
+            name: f.name === 'global' ? f.name : `${f.name}(${f.args.join(', ')})`,
+            args: f.args,
+            variables: this.get_scope_variables(f.scope),
+            open: true
+        }));
+        this.setDebugStore("callStack", debugFrames);
     }
 }

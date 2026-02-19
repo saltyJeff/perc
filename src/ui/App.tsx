@@ -6,13 +6,21 @@ import { ConsolePane } from '../console/ConsolePane';
 import { appStore, VMState } from './AppStore';
 import styles from './App.module.css';
 
+import { VM } from '../vm';
+import { ConsoleState } from '../console/ConsoleStore';
+
 interface AppProps {
+    vm: VM;
+    consoleState: ConsoleState;
+    onConsoleClear: () => void;
+    onConsoleInput: (text: string) => void;
+    onConsoleNavigateHistory: (direction: 'up' | 'down', current: string) => string | null;
     onRun: () => void;
     onStop: () => void;
     onStep: () => void;
     onContinue: () => void;
     onBuild: () => void;
-    onTheme: (theme: 'light' | 'dark') => void;
+    onTheme: (theme: 'light' | 'dark' | 'contrast') => void;
     onWrap: (wrap: 'on' | 'off') => void;
     onEditorZoom: (size: number) => void;
     onDebuggerZoom: (size: number) => void;
@@ -27,6 +35,11 @@ export const App = (props: AppProps) => {
 
     // Expose layout actions to window for any legacy glue code
     (window as any).setMenuState = (state: string) => appStore.setVM(state as VMState);
+    (window as any).setPaneState = (pane: string, state: string) => {
+        if (pane === 'debugger') {
+            appStore.updateSize('dc', state === 'min' ? 0.01 : 0.5);
+        }
+    };
 
     // Resizing logic
     let isDraggingV = false;
@@ -78,7 +91,9 @@ export const App = (props: AppProps) => {
     const triggerResize = () => {
         if (resizeFrame) return;
         resizeFrame = requestAnimationFrame(() => {
-            if ((window as any).editor) (window as any).editor.resize();
+            if ((window as any).editor && typeof (window as any).editor.resize === 'function') {
+                (window as any).editor.resize();
+            }
             resizeFrame = null;
         });
     };
@@ -151,6 +166,7 @@ export const App = (props: AppProps) => {
                     }}
                 >
                     <DebuggerPane
+                        vm={props.vm}
                         onZoom={props.onDebuggerZoom}
                         orientation={debugOrientation()}
                         style={{ flex: `${appStore.layout.dcSplit} 1 0px` }}
@@ -167,7 +183,11 @@ export const App = (props: AppProps) => {
                     ></div>
 
                     <ConsolePane
+                        state={props.consoleState}
                         onZoom={props.onConsoleZoom}
+                        onClear={props.onConsoleClear}
+                        onInput={props.onConsoleInput}
+                        onNavigateHistory={props.onConsoleNavigateHistory}
                         orientation={consoleOrientation()}
                         style={{ flex: `${1 - appStore.layout.dcSplit} 1 0px` }}
                     />
