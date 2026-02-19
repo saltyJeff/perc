@@ -76,7 +76,22 @@ export class VM {
         try {
             const tree = parser.parse(source);
             const compiler = new Compiler(Array.from(this.foreign_funcs.keys()));
-            this.code = compiler.compile(source, tree);
+            const result = compiler.compile(source, tree);
+
+            if (result.errors.length > 0) {
+                // Report all errors? For now just throw the first one to stop execution
+                // Or better, emit them via loop?
+                // The `throw` below expects a single error.
+                // We should probably change execute behavior to NOT throw but return or emit events.
+                // But the UI expects `execute` to throw on error?
+                // existing code: console.error(e.message, loc); throw e;
+                const firstErr = result.errors[0];
+                const loc: [number, number] = [firstErr.location.start.offset, firstErr.location.end.offset];
+                console.error(firstErr.message, loc);
+                throw firstErr;
+            }
+
+            this.code = result.opcodes;
             this.reset_state();
         } catch (e: any) {
             const loc: [number, number] | null = e.location ? [e.location.start.offset, e.location.end.offset] : null;
@@ -89,18 +104,17 @@ export class VM {
         try {
             const tree = parser.parse(source);
             const compiler = new Compiler(Array.from(this.foreign_funcs.keys()));
-            // We need to know if we are in a valid state to extend.
-            // Ideally, we append code? No, we just want to run this snippet in the current global context.
-            // But the compiler produces a full program with END.
-            // And `run()` expects to start from 0.
 
-            // Simpler approach for now:
-            // 1. Compile the REPL snippet.
-            // 2. Set VM code to this new snippet.
-            // 3. Reset IP to 0, stack to empty (or keep stack?), but KEEP global scope.
-            // 4. Ideally, we should reuse the global scope from the previous run.
+            const result = compiler.compile_repl(source, tree);
 
-            this.code = compiler.compile_repl(source, tree);
+            if (result.errors.length > 0) {
+                const firstErr = result.errors[0];
+                const loc: [number, number] = [firstErr.location.start.offset, firstErr.location.end.offset];
+                console.error(firstErr.message, loc);
+                throw firstErr;
+            }
+
+            this.code = result.opcodes;
 
             // Reset state BUT preserve global scope
             this.ip = 0;
@@ -285,7 +299,8 @@ export class VM {
                             continue;
                         }
                         if (!this.current_frame.scope.assign(op.name, s_val, [op.src_start, op.src_end])) {
-                            throw new Error(`Cannot assign to uninitialized variable: ${op.name}`);
+                            this.return_error(new perc_err(`Cannot assign to uninitialized variable: ${op.name}`, [op.src_start, op.src_end]));
+                            continue;
                         }
                         if (this.in_debug_mode) {
                             this.events.on_var_update?.(op.name, s_val, [op.src_start, op.src_end]);
@@ -401,7 +416,10 @@ export class VM {
                             this.return_error(func);
                             continue;
                         }
-                        if (!(func instanceof perc_closure)) throw new Error("Object is not callable");
+                        if (!(func instanceof perc_closure)) {
+                            this.return_error(new perc_err("Object is not callable", [op.src_start, op.src_end]));
+                            continue;
+                        }
 
                         // Arguments are already on the stack. Current frame is where they are.
                         // However, we want to capture their values for the debugger.
@@ -459,7 +477,10 @@ export class VM {
                         const for_args: perc_type[] = [];
                         for (let i = 0; i < op.nargs; i++) for_args.push(this.pop());
                         const foreign = this.foreign_funcs.get(op.name);
-                        if (!foreign) throw new Error(`Foreign function not found: ${op.name}`);
+                        if (!foreign) {
+                            this.return_error(new perc_err(`Foreign function not found: ${op.name}`, [op.src_start, op.src_end]));
+                            continue;
+                        }
                         const res = foreign(...for_args.reverse());
                         this.push(res);
                         break;

@@ -15,7 +15,7 @@ import { standardBuiltins } from './vm/builtins';
 import { createConsoleBuiltins } from './console/builtins';
 import { createGuiBuiltins } from './gui_window/builtins';
 import { App } from './ui/App';
-import { createConsoleStore } from './console/ConsoleStore';
+import { consoleStore } from './console/ConsoleStore';
 import { editorStore } from './editor/EditorStore';
 import { appStore } from './ui/AppStore';
 
@@ -26,7 +26,7 @@ const initApp = () => {
     document.body.classList.add('dark-theme');
 
     const vm = new VM();
-    const [consoleState, consoleActions] = createConsoleStore();
+    // const [consoleState, consoleActions] = createConsoleStore(); // Moved to singleton
     const gui = new GUIManager();
 
     // VM state
@@ -76,7 +76,7 @@ const initApp = () => {
                     }
 
                     if (result.done) {
-                        consoleActions.addEntry("Execution stopped.", 'status');
+                        consoleStore.actions.addEntry("Execution stopped.", 'status');
                         stopVM();
                         resolve();
                         return;
@@ -118,65 +118,77 @@ const initApp = () => {
             return;
         }
 
-        consoleActions.addEntry("Run: Starting execution...", 'status');
+        // Ensure any previous execution is fully stopped
+        stopVM();
+
+        consoleStore.actions.addEntry("Run: Starting execution...", 'status');
         const code = editorStore.getValue();
 
         try {
             const compiler = new Compiler(Array.from(vm.get_foreign_funcs().keys()));
             const tree = parser.parse(code);
-            const opcodes = compiler.compile(code, tree);
+            const result = compiler.compile(code, tree);
 
-            vm.load_code(opcodes);
+            if (result.errors.length > 0) {
+                const firstErr = result.errors[0];
+                throw firstErr;
+            }
+
+            vm.load_code(result.opcodes);
             currentRunner = vm.run();
             runVM();
         } catch (e: any) {
             console.error(e);
             if (e instanceof PercCompileError && e.location) {
-                consoleActions.addEntry(`Run Error: ${e.message} (line ${e.location.start.line}:${e.location.start.column})`, 'error', [e.location.start.offset, e.location.end.offset]);
+                consoleStore.actions.addEntry(`Run Error: ${e.message} (line ${e.location.start.line}:${e.location.start.column})`, 'error', [e.location.start.offset, e.location.end.offset]);
                 editorStore.highlightAndScroll(e.location, 'error');
             } else {
-                consoleActions.addEntry(`Run Error: ${e.message}`, 'error');
+                consoleStore.actions.addEntry(`Run Error: ${e.message}`, 'error');
             }
             stopVM();
         }
     };
     const handleStop = () => {
-        consoleActions.addEntry("Stop: Execution halted.", 'status');
+        consoleStore.actions.addEntry("Stop: Execution halted.", 'status');
         stopVM();
     };
 
     const handleBuild = () => {
-        consoleActions.addEntry("Build: Compiling...", 'status');
+        consoleStore.actions.addEntry("Build: Compiling...", 'status');
         editorStore.clearErrorHighlight();
         const code = editorStore.getValue();
 
         try {
             const compiler = new Compiler(Array.from(vm.get_foreign_funcs().keys()));
             const tree = parser.parse(code);
-            compiler.compile(code, tree);
-            consoleActions.addEntry("Build: No errors found.", 'status');
+            const result = compiler.compile(code, tree);
+            if (result.errors.length > 0) {
+                const firstErr = result.errors[0];
+                throw firstErr;
+            }
+            consoleStore.actions.addEntry("Build: No errors found.", 'status');
         } catch (e: any) {
             if (e instanceof PercCompileError && e.location) {
                 const msg = e.message;
-                consoleActions.addEntry(`Build Error: ${msg} (line ${e.location.start.line}:${e.location.start.column})`, 'error', [e.location.start.offset, e.location.end.offset]);
+                consoleStore.actions.addEntry(`Build Error: ${msg} (line ${e.location.start.line}:${e.location.start.column})`, 'error', [e.location.start.offset, e.location.end.offset]);
                 editorStore.highlightAndScroll(e.location, 'error');
             } else if (e.location && e.location.start) {
                 // Legacy error handling if any
                 const loc = e.location.start;
                 const msg = e.message.replace(/^Error:\s*/, '');
-                consoleActions.addEntry(`Build Error: ${msg}`, 'error', e.location.end ? [e.location.start.offset, e.location.end.offset] : undefined);
+                consoleStore.actions.addEntry(`Build Error: ${msg}`, 'error', e.location.end ? [e.location.start.offset, e.location.end.offset] : undefined);
                 editorStore.highlightError(loc.line, loc.column);
             } else {
-                consoleActions.addEntry(`Build Error: ${e.message}`, 'error');
+                consoleStore.actions.addEntry(`Build Error: ${e.message}`, 'error');
             }
         }
     };
 
     const handleConsoleInput = async (input: string) => {
-        consoleActions.addEntry(`> ${input}`, 'input');
+        consoleStore.actions.addEntry(`> ${input}`, 'input');
 
         if (input.trim()) {
-            consoleActions.pushHistory(input);
+            consoleStore.actions.pushHistory(input);
         }
 
         if (isWaitingForInput && currentRunner) {
@@ -195,16 +207,16 @@ const initApp = () => {
                 if (vm.stack.length > 0) {
                     const result = vm.stack.pop();
                     if (result) {
-                        consoleActions.addEntry(result.to_string(), 'log');
+                        consoleStore.actions.addEntry(result.to_string(), 'log');
                     }
                 }
             } catch (err: any) {
                 if (err instanceof PercCompileError && err.location) {
-                    consoleActions.addEntry(`${err.message} (line ${err.location.start.line}:${err.location.start.column})`, 'error', [err.location.start.offset, err.location.end.offset]);
+                    consoleStore.actions.addEntry(`${err.message} (line ${err.location.start.line}:${err.location.start.column})`, 'error', [err.location.start.offset, err.location.end.offset]);
                 } else if (err.location) {
-                    consoleActions.addEntry(err.message, 'error', [err.location.start.offset, err.location.end.offset]);
+                    consoleStore.actions.addEntry(err.message, 'error', [err.location.start.offset, err.location.end.offset]);
                 } else {
-                    consoleActions.addEntry(err.message, 'error');
+                    consoleStore.actions.addEntry(err.message, 'error');
                 }
             }
         }
@@ -218,14 +230,14 @@ const initApp = () => {
                 vm.set_events({
                     on_error: (msg, location) => {
                         const cleanMsg = msg.replace(/^(Javascript Error|Syntax Error|Error):\s*/i, '');
-                        consoleActions.addEntry(cleanMsg, 'error', location || undefined);
+                        consoleStore.actions.addEntry(cleanMsg, 'error', location || undefined);
                         stopVM();
                     },
                     on_input_request: (prompt) => {
                         // The VM has already set is_waiting_for_input = true
                         isWaitingForInput = true;
-                        consoleActions.addEntry(prompt || "Input required:", 'log');
-                        consoleActions.addEntry("Type input below and press Enter...", 'status');
+                        consoleStore.actions.addEntry(prompt || "Input required:", 'log');
+                        consoleStore.actions.addEntry("Type input below and press Enter...", 'status');
                         // We also need to pause/halt the execution loop, which happens in runVM due to wait flag
                         // But runVM loop checks `vm.is_waiting_for_input` which IS true now.
                         updateToolbarState('input');
@@ -252,13 +264,13 @@ const initApp = () => {
                 vm.register_builtins(standardBuiltins);
                 // Create legacy-like interface for console builtins
                 const legacyConsole = {
-                    print: (msg: string) => consoleActions.addEntry(msg, 'log'),
-                    println: (msg: string) => consoleActions.addEntry(msg, 'log'),
-                    error: (msg: string, loc?: any) => consoleActions.addEntry(msg, 'error', loc),
-                    status: (msg: string) => consoleActions.addEntry(msg, 'status'),
-                    input: (msg: string) => consoleActions.addEntry(msg, 'input'),
-                    setTextColor: (color: string) => consoleActions.setTextColor(color),
-                    clear: () => consoleActions.clear()
+                    print: (msg: string) => consoleStore.actions.addEntry(msg, 'log'),
+                    println: (msg: string) => consoleStore.actions.addEntry(msg, 'log'),
+                    error: (msg: string, loc?: any) => consoleStore.actions.addEntry(msg, 'error', loc),
+                    status: (msg: string) => consoleStore.actions.addEntry(msg, 'status'),
+                    input: (msg: string) => consoleStore.actions.addEntry(msg, 'input'),
+                    setTextColor: (color: string) => consoleStore.actions.setTextColor(color),
+                    clear: () => consoleStore.actions.clear()
                 };
                 vm.register_builtins(createConsoleBuiltins(legacyConsole as any, (prompt) => {
                     // Callback from 'input' builtin
@@ -283,7 +295,7 @@ const initApp = () => {
                     // for (...) { next(); if (vm.is_waiting_for_input) ... }
                     // So yes, setting it here is enough.
                     vm.is_waiting_for_input = true;
-                    consoleActions.addEntry(prompt || "Input required:", 'status');
+                    consoleStore.actions.addEntry(prompt || "Input required:", 'status');
                     updateToolbarState('input');
                 }));
                 vm.register_builtins(createGuiBuiltins(gui));
@@ -293,15 +305,13 @@ const initApp = () => {
                 });
                 editorStore.setBuiltins(Array.from(vm.get_foreign_funcs().keys()));
 
-                consoleActions.addEntry("Welcome to PerC IDE v0.1", 'status');
+                consoleStore.actions.addEntry("Welcome to PerC IDE v0.1", 'status');
             });
 
             return <App
                 vm={vm}
-                consoleState={consoleState}
-                onConsoleClear={() => consoleActions.clear()}
+                console={consoleStore}
                 onConsoleInput={handleConsoleInput}
-                onConsoleNavigateHistory={(dir, curr) => consoleActions.navigateHistory(dir, curr)}
                 onRun={handleRun}
                 onStop={handleStop}
                 onStep={handleStep}

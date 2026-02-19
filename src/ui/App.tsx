@@ -7,14 +7,11 @@ import { appStore } from './AppStore';
 import styles from './App.module.css';
 
 import { VM } from '../vm';
-import { ConsoleState } from '../console/ConsoleStore';
+import { ConsoleStore } from '../console/ConsoleStore';
 
 interface AppProps {
     vm: VM;
-    consoleState: ConsoleState;
-    onConsoleClear: () => void;
-    onConsoleInput: (text: string) => void;
-    onConsoleNavigateHistory: (direction: 'up' | 'down', current: string) => string | null;
+    console: ConsoleStore;
     onRun: () => void;
     onStop: () => void;
     onStep: () => void;
@@ -25,6 +22,7 @@ interface AppProps {
     onEditorZoom: (size: number) => void;
     onDebuggerZoom: (size: number) => void;
     onConsoleZoom: (size: number) => void;
+    onConsoleInput: (text: string) => void;
 }
 
 export const App = (props: AppProps) => {
@@ -32,7 +30,6 @@ export const App = (props: AppProps) => {
     let verticalContainerRef: HTMLDivElement | undefined;
 
     const [isDragging, setIsDragging] = createSignal(false);
-
 
 
     // Resizing logic
@@ -171,11 +168,11 @@ export const App = (props: AppProps) => {
                     ></div>
 
                     <ConsolePane
-                        state={props.consoleState}
+                        state={props.console.state}
                         onZoom={props.onConsoleZoom}
-                        onClear={props.onConsoleClear}
+                        onClear={props.console.actions.clear}
                         onInput={props.onConsoleInput}
-                        onNavigateHistory={props.onConsoleNavigateHistory}
+                        onNavigateHistory={props.console.actions.navigateHistory}
                         orientation={consoleOrientation()}
                         style={{ flex: `${1 - appStore.layout.dcSplit} 1 0px` }}
                     />

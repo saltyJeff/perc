@@ -196,6 +196,12 @@ export function compileVarChange(compiler: ICompiler, cursor: TreeCursor) {
 
     const targetIdName = getIdentifierName(compiler.source, cursor);
     if (targetIdName) {
+        if (!compiler.resolve_var(targetIdName)) {
+            compiler.errors.push(new PercCompileError(
+                `Variable '${targetIdName}' is not defined`,
+                getLocation(compiler.source, cursor.from, cursor.to)
+            ));
+        }
         cursor.nextSibling(); // Op
         const isCatchChange = (cursor.name as string) === "CatchAssignOp";
         cursor.nextSibling(); // Expression

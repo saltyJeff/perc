@@ -16,7 +16,7 @@ export interface ConsoleState {
     textColor: string;
 }
 
-export function createConsoleStore() {
+function createConsoleStore() {
     const [state, setState] = createStore<ConsoleState>({
         entries: [],
         history: [],
@@ -84,5 +84,8 @@ export function createConsoleStore() {
         }
     };
 
-    return [state, actions] as const;
+    return { state, actions };
 }
+
+export const consoleStore = createConsoleStore();
+export type ConsoleStore = typeof consoleStore;

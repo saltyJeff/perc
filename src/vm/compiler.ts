@@ -39,6 +39,8 @@ export class Compiler implements ICompiler {
 
     private scopes: Set<string>[] = [];
 
+    public errors: PercCompileError[] = [];
+
     public enter_scope() {
         this.scopes.push(new Set());
     }
@@ -47,19 +49,29 @@ export class Compiler implements ICompiler {
         this.scopes.pop();
     }
 
+    public resolve_var(name: string): boolean {
+        // Look up in all scopes from top to bottom
+        for (let i = this.scopes.length - 1; i >= 0; i--) {
+            if (this.scopes[i].has(name)) return true;
+        }
+        return false;
+    }
+
     public declare_var(name: string, location: { start: number, end: number }) {
         const current = this.scopes[this.scopes.length - 1];
         if (current.has(name)) {
-            throw new PercCompileError(
+            this.errors.push(new PercCompileError(
                 `Variable '${name}' already declared in this scope`,
                 getLocation(this.source, location.start, location.end)
-            );
+            ));
+        } else {
+            current.add(name);
         }
-        current.add(name);
     }
 
-    compile(source: string, tree: Tree): opcode[] {
+    compile(source: string, tree: Tree): { opcodes: opcode[], errors: PercCompileError[] } {
         this.opcodes = [];
+        this.errors = [];
         this.scopes = [];
         this.source = source;
         this.enter_scope(); // Global scope
@@ -68,11 +80,12 @@ export class Compiler implements ICompiler {
         this.visit(cursor);
 
         this.exit_scope();
-        return this.opcodes;
+        return { opcodes: this.opcodes, errors: this.errors };
     }
 
-    compile_repl(source: string, tree: Tree): opcode[] {
+    compile_repl(source: string, tree: Tree): { opcodes: opcode[], errors: PercCompileError[] } {
         this.opcodes = [];
+        this.errors = [];
         this.scopes = [];
         this.source = source;
         this.enter_scope(); // Global scope
@@ -115,7 +128,7 @@ export class Compiler implements ICompiler {
         }
 
         this.exit_scope();
-        return this.opcodes;
+        return { opcodes: this.opcodes, errors: this.errors };
     }
 
     public emit(op: any, location: { start: number, end: number }) {
@@ -220,7 +233,14 @@ export class Compiler implements ICompiler {
                 break;
 
             case "Identifier":
-                this.emit({ type: 'load', name: this.source.slice(cursor.from, cursor.to) }, { start: cursor.from, end: cursor.to });
+                const name = this.source.slice(cursor.from, cursor.to);
+                if (!this.resolve_var(name) && !this.foreign_funcs.has(name)) {
+                    this.errors.push(new PercCompileError(
+                        `Variable '${name}' is not defined`,
+                        getLocation(this.source, cursor.from, cursor.to)
+                    ));
+                }
+                this.emit({ type: 'load', name }, { start: cursor.from, end: cursor.to });
                 break;
 
             case "IntegerLiteral":
