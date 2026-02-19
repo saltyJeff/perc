@@ -1,51 +1,55 @@
 /* Perc Value Styles */
-.perc-value,
-.perc-num {
+.root {
     font-family: monospace;
     width: 100%;
     cursor: default;
 }
 
 /* Types */
-.perc-num {
+.number {
     color: #b5cea8;
+    font-family: monospace;
+    width: 100%;
+    cursor: default;
 }
 
-.perc-str {
+.string {
     color: #ce9178;
 }
 
-.perc-bool {
+.bool {
     color: #569cd6;
 }
 
-.perc-nil {
+.nil {
     color: #569cd6;
     font-style: italic;
 }
 
-.perc-addr {
+.addr {
     color: #dcdcaa;
 }
 
-.perc-func {
+.func {
     color: #dcdcaa;
 }
 
-.perc-meta {
+.meta {
     color: #888;
     font-size: 0.9em;
 }
 
 /* Interactive Hover */
-.value-hover {
+/* .interactive handled via logic/attributes if needed */
+
+.hover {
     outline: 2px solid var(--accent-color, #007acc);
     background-color: rgba(0, 122, 204, 0.1);
     border-radius: 2px;
 }
 
 /* Floating Tooltip */
-.value-tooltip {
+.tooltip {
     position: fixed;
     /* Fixed to be relative to viewport, avoiding overflow issues */
     z-index: 9999;

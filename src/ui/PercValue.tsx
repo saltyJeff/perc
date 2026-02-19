@@ -1,6 +1,6 @@
 import { createSignal, Show } from "solid-js";
 import { perc_type, perc_number } from "../vm/perc_types";
-import "./perc_value.css";
+import styles from "./PercValue.module.css";
 
 interface PercValueProps {
     value: perc_type;
@@ -60,11 +60,30 @@ export const PercValue = (props: PercValueProps) => {
     };
 
     const classNames = () => {
-        const base = props.isRow ? '' : 'perc-value';
-        const numClass = props.value instanceof perc_number ? 'perc-num' : '';
-        const interactiveClass = (props.value instanceof perc_number && isInteger(props.value.type)) ? 'interactive-value' : '';
-        const hoverClass = showTooltip() ? 'value-hover' : '';
-        return [base, numClass, interactiveClass, hoverClass].filter(Boolean).join(' ');
+        const parts = [];
+        if (!props.isRow) parts.push(styles.root);
+
+        const value = props.value;
+        if (value instanceof perc_number) {
+            parts.push(styles.number);
+        } else if (value.type === 'string') {
+            parts.push(styles.string);
+        } else if (value.type === 'bool') {
+            parts.push(styles.bool);
+        } else if (value.type === 'nil') {
+            parts.push(styles.nil);
+        }
+
+        // Interactive check
+        if (value instanceof perc_number && isInteger(value.type)) {
+            parts.push(styles.interactive);
+        }
+
+        if (showTooltip()) {
+            parts.push(styles.hover);
+        }
+
+        return parts.join(' ');
     };
 
     const content = (
@@ -80,7 +99,7 @@ export const PercValue = (props: PercValueProps) => {
             {renderContent()}
             <Show when={showTooltip()}>
                 <div
-                    class="value-tooltip"
+                    class={styles.tooltip}
                     style={{
                         position: 'fixed',
                         top: `${tooltipPos().top}px`,

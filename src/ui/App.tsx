@@ -33,11 +33,19 @@ export const App = (props: AppProps) => {
 
     const [isDragging, setIsDragging] = createSignal(false);
 
+    // Track last splitter position to restore it
+    let lastDcSplit = 0.5;
+
     // Expose layout actions to window for any legacy glue code
     (window as any).setMenuState = (state: string) => appStore.setVM(state as VMState);
     (window as any).setPaneState = (pane: string, state: string) => {
         if (pane === 'debugger') {
-            appStore.updateSize('dc', state === 'min' ? 0.01 : 0.5);
+            if (state === 'min') {
+                lastDcSplit = appStore.layout.dcSplit > 0.1 ? appStore.layout.dcSplit : 0.5;
+                appStore.updateSize('dc', 0.01);
+            } else {
+                appStore.updateSize('dc', lastDcSplit);
+            }
         }
     };
 

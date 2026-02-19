@@ -9,7 +9,6 @@ import './style.css';
 import './console/console.css';
 import './editor/editor.css';
 import './debugger/debugger.css';
-import './ui/perc_value.css';
 import { render } from 'solid-js/web';
 import { onMount } from 'solid-js';
 import { standardBuiltins } from './vm/builtins';
@@ -53,8 +52,6 @@ const initApp = () => {
         updateToolbarState('idle');
 
         vm.reset_state(); // This also resets debugStore in the VM
-
-        if ((window as any).setPaneState) (window as any).setPaneState('debugger', 'min');
     };
 
     const runVM = async () => {
@@ -125,7 +122,7 @@ const initApp = () => {
         } catch (e: any) {
             console.error(e);
             if (e instanceof PercCompileError && e.location) {
-                consoleActions.addEntry(`Run Error: ${e.message}`, 'error', [e.location.start.offset, e.location.end.offset]);
+                consoleActions.addEntry(`Run Error: ${e.message} (line ${e.location.start.line}:${e.location.start.column})`, 'error', [e.location.start.offset, e.location.end.offset]);
                 editorStore.highlightAndScroll(e.location, 'error');
             } else {
                 consoleActions.addEntry(`Run Error: ${e.message}`, 'error');
@@ -151,7 +148,7 @@ const initApp = () => {
         } catch (e: any) {
             if (e instanceof PercCompileError && e.location) {
                 const msg = e.message;
-                consoleActions.addEntry(`Build Error: ${msg}`, 'error', [e.location.start.offset, e.location.end.offset]);
+                consoleActions.addEntry(`Build Error: ${msg} (line ${e.location.start.line}:${e.location.start.column})`, 'error', [e.location.start.offset, e.location.end.offset]);
                 editorStore.highlightAndScroll(e.location, 'error');
             } else if (e.location && e.location.start) {
                 // Legacy error handling if any
@@ -193,7 +190,7 @@ const initApp = () => {
                 }
             } catch (err: any) {
                 if (err instanceof PercCompileError && err.location) {
-                    consoleActions.addEntry(err.message, 'error', [err.location.start.offset, err.location.end.offset]);
+                    consoleActions.addEntry(`${err.message} (line ${err.location.start.line}:${err.location.start.column})`, 'error', [err.location.start.offset, err.location.end.offset]);
                 } else if (err.location) {
                     consoleActions.addEntry(err.message, 'error', [err.location.start.offset, err.location.end.offset]);
                 } else {

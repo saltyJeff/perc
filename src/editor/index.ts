@@ -266,6 +266,20 @@ while(true) then {
 
             if (from > to) [from, to] = [to, from];
 
+            const docLength = this.view.state.doc.length;
+            from = Math.max(0, Math.min(from, docLength));
+            to = Math.max(0, Math.min(to, docLength));
+
+            if (from === to) {
+                if (to < docLength) {
+                    to++;
+                } else if (from > 0) {
+                    from--;
+                }
+            }
+
+            if (from === to) return;
+
             const effect = type === 'error' ? errorEffect : debugEffect;
             this.view.dispatch({
                 effects: [
