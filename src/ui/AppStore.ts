@@ -1,4 +1,5 @@
 import { createStore } from "solid-js/store";
+import { Console } from "../console";
 
 // This saves your custom dragged sizes so 'restore' doesn't wipe them out
 const customSizes = {
@@ -171,6 +172,94 @@ document.addEventListener('mouseup', () => {
 // Run once on load
 applyLayout('restore', 'all');
 
-export const [layoutStore, setLayoutStore] = createStore({
+export enum PaneState {
+    MIN, MAX, RESTORE
+}
+export enum ChildPaneState {
+    DEBUGGER, CONSOLE, BOTH
+}
+export enum VMState {
+    IDLE,
+    RUNNING,
+    DEBUGGING
+}
 
-})
+export enum PaneId {
+    EDITOR, DEBUG, CONSOLE
+}
+export enum PaneAction {
+    MIN, MAX, RESTORE
+}
+export enum DividerId {
+    EDITOR_DC,
+    DC
+}
+
+function createAppStore() {
+    const [layout, setLayout] = createStore({
+        editor: PaneState.RESTORE,
+        e_dc_divider: -1,
+        dc: {
+            state: PaneState.RESTORE,
+            dc_divider: -1,
+            child: ChildPaneState.BOTH
+        }
+    });
+    const [vm, setVM] = createStore<{ vm: VMState }>({
+        vm: VMState.IDLE,
+    });
+    return {
+        layout, vm, setVM,
+        paneAction: (pane: PaneId, action: PaneAction) => {
+            if (pane == PaneId.CONSOLE) {
+                switch (action) {
+                    case PaneAction.MIN:
+                        setLayout("editor", PaneState.MIN)
+                        setLayout("dc", "state", PaneState.MAX)
+                        break;
+                    case PaneAction.MAX:
+                        setLayout("editor", PaneState.MAX)
+                        setLayout("dc", "state", PaneState.MIN)
+                        break;
+                    case PaneAction.RESTORE:
+                        setLayout("editor", PaneState.RESTORE)
+                        setLayout("dc", "state", PaneState.RESTORE)
+                        break;
+                }
+                return;
+            }
+            if (layout.dc.state == PaneState.MIN) {
+                return;
+            }
+            if (pane == PaneId.DEBUG) {
+                switch (action) {
+                    case PaneAction.MIN:
+                        setLayout("dc", "child", ChildPaneState.CONSOLE)
+                        break;
+                    case PaneAction.MAX:
+                        setLayout("dc", "child", ChildPaneState.DEBUGGER)
+                        break;
+                    case PaneAction.RESTORE:
+                        setLayout("dc", "child", ChildPaneState.BOTH)
+                        break;
+                }
+            }
+            if (pane == PaneId.EDITOR) {
+                switch (action) {
+                    case PaneAction.MIN:
+                        setLayout("editor", PaneState.MIN)
+                        break;
+                    case PaneAction.MAX:
+                        setLayout("editor", PaneState.MAX)
+                        break;
+                    case PaneAction.RESTORE:
+                        setLayout("editor", PaneState.RESTORE)
+                        break;
+                }
+            }
+        },
+        dragAction: (divider: DividerId, e: Event) => { }
+    }
+}
+
+export const appStore = createAppStore();
