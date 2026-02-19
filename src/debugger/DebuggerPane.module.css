@@ -46,18 +46,7 @@
     position: relative;
 }
 
-.maximized {
-    z-index: 100;
-}
-
-.collapsed {
-    overflow: hidden;
-}
-
-.collapsed .content,
-.collapsed .controls {
-    display: none;
-}
+/* Vertical / Collapsed States */
 
 .vertical {
     overflow: hidden;
@@ -81,33 +70,124 @@
     width: 100%;
 }
 
-.vertical .titleArea>span {
-    writing-mode: vertical-rl;
-    text-orientation: mixed;
-    transform: rotate(180deg);
-}
+/* Note: Visual text rotation is now handled by global .vertical-header-text class */
 
 .vertical .content,
 .vertical .controls {
     display: none;
 }
 
-.collapsed .header {
-    height: 32px;
-    padding: 0 10px;
-    flex-direction: row;
-    justify-content: space-between;
+/* Debugger Specific Styles (Merged from debugger.css) */
+
+.debugSection {
+    padding: 10px;
+    border-bottom: 1px solid var(--border-color);
+    overflow: auto;
 }
 
-.collapsed .titleArea {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 12px;
-    margin-top: 0;
+.debugSection h4 {
+    margin: 0 0 5px 0;
+    font-size: 0.9em;
+    opacity: 0.8;
+    display: block;
 }
 
-.collapsed .titleArea>span {
-    writing-mode: horizontal-tb;
-    transform: none;
+/* VS-Style Debug Table */
+.debugTable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9em;
+    table-layout: fixed;
+}
+
+.debugTable tr {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.debugTable td {
+    border: none;
+    border-right: 1px solid var(--border-color);
+    padding: 4px 5px;
+    vertical-align: top;
+    white-space: normal;
+    word-break: break-all;
+    position: relative;
+    font-family: 'Consolas', monospace;
+}
+
+.debugTable td:last-child {
+    border-right: none;
+}
+
+.debugTable tr:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Resize Handle Style */
+.colResizer {
+    position: absolute;
+    top: 0;
+    right: -3px;
+    width: 6px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 10;
+}
+
+.colResizer:hover {
+    background-color: var(--accent-color, #4facfe);
+    opacity: 0.5;
+}
+
+/* Specific Columns */
+.colName {
+    color: var(--accent-color, #9cdcfe);
+    text-align: left;
+}
+
+.colValue {
+    color: var(--fg-color);
+    text-align: left;
+}
+
+.debugVarName {
+    cursor: pointer;
+}
+
+.debugVarName:hover {
+    text-decoration: underline;
+}
+
+/* Call Stack Details Overrides */
+/* Use global selector or deep selector since details/summary are native elements */
+.stackContent :global(details > summary) {
+    cursor: pointer;
+    font-weight: bold;
+    padding: 4px 0;
+    outline: none;
+    user-select: none;
+}
+
+.stackContent :global(details[open] > summary) {
+    margin-bottom: 5px;
+}
+
+.stackContent :global(details) {
+    margin-bottom: 8px;
+    border-left: 2px solid var(--border-color);
+    padding-left: 8px;
+}
+
+@keyframes flashUpdate {
+    0% {
+        background-color: rgba(255, 255, 0, 0.5);
+    }
+
+    100% {
+        background-color: transparent;
+    }
+}
+
+.flashUpdate {
+    animation: flashUpdate 1s ease-out;
 }

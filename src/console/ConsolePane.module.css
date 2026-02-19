@@ -92,11 +92,7 @@
     width: 100%;
 }
 
-.vertical .titleArea>span {
-    writing-mode: vertical-rl;
-    text-orientation: mixed;
-    transform: rotate(180deg);
-}
+/* Note: Visual text rotation is now handled by global .vertical-header-text class */
 
 .vertical .content,
 .vertical .controls,

@@ -12,10 +12,11 @@ export const PercValue = (props: PercValueProps) => {
     const [tooltipPos, setTooltipPos] = createSignal({ top: 0, left: 0 });
     const [isExpanded, setIsExpanded] = createSignal(false);
 
-    const handleMouseEnter = (e: MouseEvent) => {
+    const handleShowTooltip = (e: Event) => {
         const value = props.value;
         if (value instanceof perc_number && isInteger(value.type)) {
-            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            const target = e.currentTarget as HTMLElement;
+            const rect = target.getBoundingClientRect();
             setTooltipPos({
                 top: rect.bottom + 5,
                 left: rect.left
@@ -24,8 +25,14 @@ export const PercValue = (props: PercValueProps) => {
         }
     };
 
-    const handleMouseLeave = () => {
+    const handleHideTooltip = () => {
         setShowTooltip(false);
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+            setShowTooltip(false);
+        }
     };
 
     const toggleExpand = (e: Event) => {
@@ -55,7 +62,7 @@ export const PercValue = (props: PercValueProps) => {
     const renderMapEntry = (key: any, value: perc_type) => (
         <div class={styles.nestedEntry}>
             <span class={styles.key}>{key}: </span>
-            <PercValue value={value} />
+            <PercValue value={value} isRow={true} />
         </div>
     );
 
@@ -72,7 +79,7 @@ export const PercValue = (props: PercValueProps) => {
                     >
                         ▶
                     </button>
-                    {val.to_string()} <span class={styles.preview}>Length: {elements.length}</span>
+                    <span class={styles.typeName}>[{val.type}]</span> <span class={styles.preview}>Length: {elements.length}</span>
                 </span>
             );
         }
@@ -89,11 +96,11 @@ export const PercValue = (props: PercValueProps) => {
                     >
                         ▶
                     </button>
-                    {val.to_string()}
+                    <span class={styles.typeName}>[{val.type}]</span>
                 </div>
                 <div class={styles.objectBody}>
                     <For each={elements}>
-                        {(item, index) => renderMapEntry(index(), item)}
+                        {(item, index) => renderMapEntry(index() + 1, item)}
                     </For>
                 </div>
             </div>
@@ -113,7 +120,7 @@ export const PercValue = (props: PercValueProps) => {
                     >
                         ▶
                     </button>
-                    {val.to_string()} <span class={styles.preview}>Size: {entries.length}</span>
+                    <span class={styles.typeName}>[{val.type}]</span> <span class={styles.preview}>Size: {entries.length}</span>
                 </span>
             );
         }
@@ -130,7 +137,7 @@ export const PercValue = (props: PercValueProps) => {
                     >
                         ▶
                     </button>
-                    {val.to_string()}
+                    <span class={styles.typeName}>[{val.type}]</span>
                 </div>
                 <div class={styles.objectBody}>
                     <For each={entries}>
@@ -144,7 +151,12 @@ export const PercValue = (props: PercValueProps) => {
     const renderContent = () => {
         const value = props.value;
         if (value instanceof perc_number) {
-            return <span class="val">{value.to_string()}</span>;
+            return (
+                <>
+                    <span class={styles.typeName}>[{value.type}]</span>
+                    <span class="val">{value.to_string()}</span>
+                </>
+            );
         }
         if (value instanceof perc_list) {
             return renderList(value);
@@ -153,13 +165,24 @@ export const PercValue = (props: PercValueProps) => {
             return renderMap(value);
         }
         if (value.type === 'string') {
-            return <span>"{value.to_string()}"</span>;
+            return (
+                <>
+                    <span class={styles.typeName}>[string]</span>
+                    <span>"{value.to_string()}"</span>
+                </>
+            );
         }
-        return <span>{value.to_string()}</span>;
+        return (
+            <>
+                <span class={styles.typeName}>[{value.type}]</span>
+                <span>{value.to_string()}</span>
+            </>
+        );
     };
 
     const classNames = () => {
         const parts = [];
+        parts.push(styles.content); // Always use content layout
         if (!props.isRow) parts.push(styles.root);
 
         const value = props.value;
@@ -188,17 +211,22 @@ export const PercValue = (props: PercValueProps) => {
     const content = (
         <div
             class={classNames()}
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
+            onMouseEnter={handleShowTooltip}
+            onMouseLeave={handleHideTooltip}
+            onFocus={handleShowTooltip}
+            onBlur={handleHideTooltip}
+            onKeyDown={handleKeyDown}
+            tabIndex={props.value instanceof perc_number && isInteger(props.value.type) ? 0 : undefined}
             onTouchStart={(e) => {
                 e.preventDefault();
-                handleMouseEnter(e as unknown as MouseEvent);
+                handleShowTooltip(e as unknown as Event);
             }}
         >
             {renderContent()}
             <Show when={showTooltip()}>
                 <div
                     class={styles.tooltip}
+                    role="tooltip"
                     style={{
                         position: 'fixed',
                         top: `${tooltipPos().top}px`,

@@ -8,7 +8,7 @@ import { PercCompileError } from './errors';
 import './style.css';
 import './console/console.css';
 import './editor/editor.css';
-import './debugger/debugger.css';
+
 import { render } from 'solid-js/web';
 import { onMount } from 'solid-js';
 import { standardBuiltins } from './vm/builtins';
@@ -140,10 +140,10 @@ const initApp = () => {
         } catch (e: any) {
             console.error(e);
             if (e instanceof PercCompileError && e.location) {
-                consoleStore.actions.addEntry(`Run Error: ${e.message} (line ${e.location.start.line}:${e.location.start.column})`, 'error', [e.location.start.offset, e.location.end.offset]);
+                consoleStore.actions.addEntry(`Build Error: ${e.message} (at ${e.location.start.line}:${e.location.start.column})`, 'error', [e.location.start.offset, e.location.end.offset]);
                 editorStore.highlightAndScroll(e.location, 'error');
             } else {
-                consoleStore.actions.addEntry(`Run Error: ${e.message}`, 'error');
+                consoleStore.actions.addEntry(`Build Error: ${e.message}`, 'error');
             }
             stopVM();
         }
@@ -170,13 +170,13 @@ const initApp = () => {
         } catch (e: any) {
             if (e instanceof PercCompileError && e.location) {
                 const msg = e.message;
-                consoleStore.actions.addEntry(`Build Error: ${msg} (line ${e.location.start.line}:${e.location.start.column})`, 'error', [e.location.start.offset, e.location.end.offset]);
+                consoleStore.actions.addEntry(`Build Error: ${msg} (at ${e.location.start.line}:${e.location.start.column})`, 'error', [e.location.start.offset, e.location.end.offset]);
                 editorStore.highlightAndScroll(e.location, 'error');
             } else if (e.location && e.location.start) {
                 // Legacy error handling if any
                 const loc = e.location.start;
                 const msg = e.message.replace(/^Error:\s*/, '');
-                consoleStore.actions.addEntry(`Build Error: ${msg}`, 'error', e.location.end ? [e.location.start.offset, e.location.end.offset] : undefined);
+                consoleStore.actions.addEntry(`Build Error: ${msg} (at ${loc.line}:${loc.column})`, 'error', e.location.end ? [e.location.start.offset, e.location.end.offset] : undefined);
                 editorStore.highlightError(loc.line, loc.column);
             } else {
                 consoleStore.actions.addEntry(`Build Error: ${e.message}`, 'error');
@@ -212,11 +212,12 @@ const initApp = () => {
                 }
             } catch (err: any) {
                 if (err instanceof PercCompileError && err.location) {
-                    consoleStore.actions.addEntry(`${err.message} (line ${err.location.start.line}:${err.location.start.column})`, 'error', [err.location.start.offset, err.location.end.offset]);
+                    consoleStore.actions.addEntry(`Build Error: ${err.message} (at ${err.location.start.line}:${err.location.start.column})`, 'error', [err.location.start.offset, err.location.end.offset]);
                 } else if (err.location) {
-                    consoleStore.actions.addEntry(err.message, 'error', [err.location.start.offset, err.location.end.offset]);
+                    // Runtime error in repl?
+                    consoleStore.actions.addEntry(`Error: ${err.message}`, 'error', [err.location.start.offset, err.location.end.offset]);
                 } else {
-                    consoleStore.actions.addEntry(err.message, 'error');
+                    consoleStore.actions.addEntry(`Error: ${err.message}`, 'error');
                 }
             }
         }
@@ -226,11 +227,32 @@ const initApp = () => {
     if (appRoot) {
         render(() => {
             onMount(() => {
+                // Helper to get line/col from offset
+                const getLineCol = (offset: number) => {
+                    const code = editorStore.getValue();
+                    let line = 1;
+                    let col = 1;
+                    for (let i = 0; i < offset && i < code.length; i++) {
+                        if (code[i] === '\n') {
+                            line++;
+                            col = 1;
+                        } else {
+                            col++;
+                        }
+                    }
+                    return { line, col };
+                };
+
                 // Wire VM Events
                 vm.set_events({
                     on_error: (msg, location) => {
                         const cleanMsg = msg.replace(/^(Javascript Error|Syntax Error|Error):\s*/i, '');
-                        consoleStore.actions.addEntry(cleanMsg, 'error', location || undefined);
+                        let fmtMsg = `Runtime Error: ${cleanMsg}`;
+                        if (location && location[0] !== undefined) {
+                            const { line, col } = getLineCol(location[0]);
+                            fmtMsg += ` (at ${line}:${col})`;
+                        }
+                        consoleStore.actions.addEntry(fmtMsg, 'error', location || undefined);
                         stopVM();
                     },
                     on_input_request: (prompt) => {

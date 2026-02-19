@@ -4,8 +4,8 @@ import { For, Show, createSignal, onMount, onCleanup } from 'solid-js';
 import { PercValue } from '../ui/PercValue';
 import { VM } from '../vm';
 import { editorStore } from '../editor/EditorStore';
-import "./DebuggerPane.css";
 
+// Removed: import "./DebuggerPane.css";
 
 interface DebuggerPaneProps {
     vm: VM;
@@ -15,23 +15,20 @@ interface DebuggerPaneProps {
 }
 
 export const DebuggerPane = (props: DebuggerPaneProps) => {
-    // Column widths in percentages
-    const [colWidths3, setColWidths3] = createSignal([33.33, 33.34, 33.33]);
-    const [colWidths2, setColWidths2] = createSignal([50, 50]);
+    // Column widths in percentages - removed 3-col variant
+    const [colWidths, setColWidths] = createSignal([50, 50]);
 
     let isResizing = false;
     let resizeStartX = 0;
     let resizeStartWidths: number[] = [];
     let resizeIndex = -1;
-    let currentCols = 2;
 
-    const startResize = (e: MouseEvent, index: number, cols: number) => {
+    const startResize = (e: MouseEvent, index: number) => {
         e.preventDefault();
         isResizing = true;
         resizeStartX = e.pageX;
         resizeIndex = index;
-        currentCols = cols;
-        resizeStartWidths = [...(cols === 3 ? colWidths3() : colWidths2())];
+        resizeStartWidths = [...colWidths()];
         document.body.style.cursor = 'col-resize';
         document.body.classList.add('no-select');
     };
@@ -55,8 +52,7 @@ export const DebuggerPane = (props: DebuggerPaneProps) => {
             if (nextRight > 10) {
                 newWidths[leftIdx] = nextLeft;
                 newWidths[rightIdx] = nextRight;
-                if (currentCols === 3) setColWidths3(newWidths);
-                else setColWidths2(newWidths);
+                setColWidths(newWidths);
             }
         }
     };
@@ -79,13 +75,11 @@ export const DebuggerPane = (props: DebuggerPaneProps) => {
         window.removeEventListener('mouseup', handleMouseUp);
     });
 
-    const DebugTable = (tableProps: { headers: string[], children: any, cols: number }) => {
-        const widths = () => tableProps.cols === 3 ? colWidths3() : colWidths2();
-
+    const DebugTable = (tableProps: { headers: string[], children: any }) => {
         return (
-            <table class="debug-table" data-cols={tableProps.cols}>
+            <table class={styles.debugTable} data-cols={tableProps.headers.length}>
                 <colgroup>
-                    <For each={widths()}>
+                    <For each={colWidths()}>
                         {(w) => <col style={{ width: `${w}%` }} />}
                     </For>
                 </colgroup>
@@ -103,18 +97,17 @@ export const DebuggerPane = (props: DebuggerPaneProps) => {
         );
     };
 
-    // Inside DebugRow
-    const DebugRow = (rowProps: { cells: any[], cols: number, varName?: string }) => {
+    const DebugRow = (rowProps: { cells: any[], varName?: string }) => {
         return (
-            <tr class={props.vm.debugStore.lastUpdatedVar === rowProps.varName ? 'flash-update' : ''}>
+            <tr class={props.vm.debugStore.lastUpdatedVar === rowProps.varName ? styles.flashUpdate : ''}>
                 <For each={rowProps.cells}>
                     {(cell, i) => (
-                        <td class={i() === 0 ? 'col-name' : (i() === 1 ? 'col-value' : 'col-type')}>
+                        <td class={i() === 0 ? styles.colName : styles.colValue}>
                             {cell}
-                            <Show when={i() < rowProps.cols - 1}>
+                            <Show when={i() < rowProps.cells.length - 1}>
                                 <div
-                                    class="col-resizer"
-                                    onMouseDown={(e) => startResize(e, i(), rowProps.cols)}
+                                    class={styles.colResizer}
+                                    onMouseDown={(e) => startResize(e, i())}
                                     role="separator"
                                     aria-label="Column resizer"
                                     tabindex="0"
@@ -136,7 +129,12 @@ export const DebuggerPane = (props: DebuggerPaneProps) => {
         >
             <div class={styles.header}>
                 <div class={styles.titleArea}>
-                    <h2 id="debugger-title" class={styles.title}>Debugger</h2>
+                    <h2
+                        id="debugger-title"
+                        class={`${styles.title} ${props.orientation === 'vertical' ? 'vertical-header-text' : ''}`}
+                    >
+                        Debugger
+                    </h2>
                 </div>
                 <div class={styles.controls}>
                     <ZoomControl onZoom={props.onZoom} minZoomPct={25} maxZoomPct={500} />
@@ -145,52 +143,50 @@ export const DebuggerPane = (props: DebuggerPaneProps) => {
             <div class={styles.content}>
                 <div id="debugger-content" class="pane-content" role="region" aria-live="polite" aria-label="Debugger State">
 
-                    <div class="debug-section" id="vm-state">
+                    <div class={styles.debugSection} id="vm-state">
                         <h4>Status</h4>
                         <div class="state-content">{props.vm.debugStore.status}</div>
                     </div>
 
-                    <div class="debug-section" id="current-expression">
+                    <div class={styles.debugSection} id="current-expression">
                         <h4>Current Expression</h4>
                         <div class="expr-content">
-                            <DebugTable headers={['Value', 'Type']} cols={2}>
+                            <DebugTable headers={['Value']}>
                                 <Show
                                     when={props.vm.debugStore.currentExpression.value}
-                                    fallback={<DebugRow cells={['nil', '-']} cols={2} />}
+                                    fallback={<DebugRow cells={['nil']} />}
                                 >
                                     <DebugRow cells={[
                                         <PercValue value={props.vm.debugStore.currentExpression.value!} isRow />,
-                                        props.vm.debugStore.currentExpression.type
-                                    ]} cols={2} />
+                                    ]} />
                                 </Show>
                             </DebugTable>
                         </div>
                     </div>
 
-                    <div class="debug-section" id="call-stack">
+                    <div class={styles.debugSection} id="call-stack">
                         <h4>Call Stack</h4>
-                        <div class="stack-content">
+                        <div class={styles.stackContent}>
                             <Show when={props.vm.debugStore.callStack.length > 0} fallback="Empty">
                                 <For each={props.vm.debugStore.callStack}>
                                     {(frame) => (
                                         <details open={frame.open}>
                                             <summary>{frame.name}</summary>
-                                            <DebugTable headers={['Name', 'Value', 'Type']} cols={3}>
+                                            <DebugTable headers={['Name', 'Value']}>
                                                 <For each={Object.entries(frame.variables)}>
                                                     {([name, data]) => (
                                                         <DebugRow
                                                             varName={name}
                                                             cells={[
                                                                 <span
-                                                                    class="debug-var-name"
+                                                                    class={styles.debugVarName}
                                                                     onMouseEnter={() => data.range && editorStore.highlightVariableDefinition(data.range[0], data.range[1])}
                                                                     onMouseLeave={() => editorStore.clearVariableDefinitionHighlight()}
                                                                 >
                                                                     {name}
                                                                 </span>,
                                                                 <PercValue value={data.value} isRow />,
-                                                                data.value.type
-                                                            ]} cols={3} />
+                                                            ]} />
                                                     )}
                                                 </For>
                                             </DebugTable>

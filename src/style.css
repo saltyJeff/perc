@@ -100,3 +100,9 @@ html {
   white-space: nowrap;
   border: 0;
 }
+
+.vertical-header-text {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+}

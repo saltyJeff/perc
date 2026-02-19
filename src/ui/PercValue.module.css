@@ -36,7 +36,7 @@
 }
 
 .tooltip {
-    background-color: var(--bg-surface-elevated);
+    background-color: var(--bg-surface-elevated, #252526);
     border: 1px solid var(--border-color);
     padding: 0.5rem;
     border-radius: 4px;
@@ -45,6 +45,14 @@
     font-size: 0.85em;
     line-height: 1.4;
     color: var(--text-primary);
+    z-index: 1000;
+}
+
+.typeName {
+    color: #4EC9B0;
+    /* Weird green like VS Code types */
+    margin-right: 4px;
+    font-weight: bold;
 }
 
 /* Recursive Object Styles */
@@ -98,7 +106,9 @@
 
 .key {
     color: var(--token-property);
-    margin-right: 4px;
+    vertical-align: middle;
+    display: inline-block;
+    height: 100%;
 }
 
 .nestedEntry {

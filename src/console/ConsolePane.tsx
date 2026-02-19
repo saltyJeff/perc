@@ -51,7 +51,12 @@ export const ConsolePane = (props: ConsolePaneProps) => {
         >
             <div class={styles.header}>
                 <div class={styles.titleArea}>
-                    <h2 id="console-title" class={styles.title}>Console / REPL</h2>
+                    <h2
+                        id="console-title"
+                        class={`${styles.title} ${props.orientation === 'vertical' ? 'vertical-header-text' : ''}`}
+                    >
+                        Console / REPL
+                    </h2>
                 </div>
                 <div class={styles.controls}>
                     <ZoomControl onZoom={props.onZoom} minZoomPct={25} maxZoomPct={500} />
