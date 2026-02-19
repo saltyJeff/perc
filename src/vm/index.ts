@@ -3,76 +3,13 @@ import { perc_type, perc_bool, perc_err, perc_closure, perc_number, perc_string,
 import type { perc_iterator } from "./perc_types.ts";
 import { Compiler } from "./compiler.ts";
 import { standardBuiltins } from "./builtins.ts";
-import { createDebugStore, DebugState } from "./DebugStore";
+import { createDebugStore } from "./DebugStore";
+import { Scope } from "./scope.ts";
+import { Frame } from "./frame.ts";
+import { VMEventMap, DebugState } from "./vm_types.ts";
 
-export type { DebugState };
-
-export interface VMEventMap {
-    on_frame_push: (frame: Frame) => void;
-    on_frame_pop: () => void;
-    on_var_update: (name: string, value: perc_type, range: [number, number] | null) => void;
-    on_stack_push: (value: perc_type) => void;
-    on_node_eval: (range: [number, number]) => void;
-    on_debugger: () => void;
-    on_state_dump: () => void;
-    on_error: (err: string, location: [number, number] | null) => void;
-    on_stack_top_update: (val: perc_type | null) => void;
-    on_input_request: (prompt: string) => void;
-}
-
-export class Scope {
-    values: Map<string, perc_type> = new Map();
-    definitions: Map<string, [number, number]> = new Map();
-    parent: Scope | null = null;
-    is_closure_scope: boolean = false;
-
-    constructor(parent: Scope | null = null) {
-        this.parent = parent;
-    }
-
-    define(name: string, value: perc_type, range: [number, number]) {
-        this.values.set(name, value);
-        this.definitions.set(name, range);
-    }
-
-    assign(name: string, value: perc_type, range: [number, number]): boolean {
-        if (this.values.has(name)) {
-            this.values.set(name, value);
-            this.definitions.set(name, range);
-            return true;
-        }
-        if (this.parent) return this.parent.assign(name, value, range);
-        return false;
-    }
-
-    lookup(name: string): perc_type | null {
-        if (this.values.has(name)) return this.values.get(name)!;
-        if (this.parent) return this.parent.lookup(name);
-        return null;
-    }
-
-    lookup_definition(name: string): [number, number] | null {
-        if (this.definitions.has(name)) return this.definitions.get(name)!;
-        if (this.parent) return this.parent.lookup_definition(name);
-        return null;
-    }
-}
-
-export class Frame {
-    scope: Scope;
-    ret_addr: number;
-    stack_start: number;
-    name: string;
-    args: string[];
-
-    constructor(scope: Scope, ret_addr: number, stack_start: number, name: string = "global", args: string[] = []) {
-        this.scope = scope;
-        this.ret_addr = ret_addr;
-        this.stack_start = stack_start;
-        this.name = name;
-        this.args = args;
-    }
-}
+export { Scope, Frame };
+export type { DebugState, VMEventMap };
 
 export class VM {
     private code: opcode[] = [];
