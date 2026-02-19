@@ -1,10 +1,9 @@
-import { createSignal, onMount, onCleanup } from 'solid-js';
-import { createStore } from 'solid-js/store';
+import { onMount, onCleanup, createEffect, createMemo, createSignal } from 'solid-js';
 import { MenuBar } from './MenuBar';
 import { EditorPane } from '../editor/EditorPane';
 import { DebuggerPane } from '../debugger/DebuggerPane';
 import { ConsolePane } from '../console/ConsolePane';
-import $ from 'jquery';
+import { appStore, DividerId, VMState } from './AppStore';
 import styles from './App.module.css';
 
 interface AppProps {
@@ -20,60 +19,59 @@ interface AppProps {
     onConsoleZoom: (size: number) => void;
 }
 
-type PaneState = 'min' | 'max' | 'restore';
-
 export const App = (props: AppProps) => {
-    const [menuState, setMenuState] = createSignal<'idle' | 'running' | 'debugging'>('idle');
+    let mainLayoutRef: HTMLDivElement | undefined;
+    let verticalContainerRef: HTMLDivElement | undefined;
 
-    const [paneStates, setPaneStates] = createStore({
-        editor: 'restore' as PaneState,
-        debugger: 'restore' as PaneState,
-        console: 'restore' as PaneState
-    });
+    const [isDragging, setIsDragging] = createSignal(false);
 
-    // These will be used to expose the state setters to index.tsx
-    (window as any).setMenuState = setMenuState;
-    (window as any).setPaneState = (name: 'editor' | 'debugger' | 'console', state: PaneState) => {
-        handlePaneStateChange(name, state);
-    };
-
-    const handlePaneStateChange = (name: 'editor' | 'debugger' | 'console', state: PaneState) => {
-        if (state === 'max') {
-            setPaneStates({
-                editor: name === 'editor' ? 'max' : 'min',
-                debugger: name === 'debugger' ? 'max' : 'min',
-                console: name === 'console' ? 'max' : 'min'
-            });
-        } else if (state === 'restore') {
-            setPaneStates({
-                editor: 'restore',
-                debugger: 'restore',
-                console: 'restore'
-            });
-        } else {
-            setPaneStates(name, 'min');
-        }
-
-        // Trigger editor resize (legacy)
-        if ((window as any).editor) {
-            setTimeout(() => (window as any).editor.resize(), 0);
-        }
-    };
+    // Expose layout actions to window for any legacy glue code
+    (window as any).setMenuState = (state: string) => appStore.setVM(state as VMState);
 
     // Resizing logic
     let isDraggingV = false;
     let isDraggingH = false;
 
-    const onMouseDownV = (e: MouseEvent) => {
+    const startDraggingV = (e: MouseEvent) => {
         isDraggingV = true;
+        setIsDragging(true);
         document.body.style.cursor = 'col-resize';
+        document.body.classList.add(styles.noSelect);
         e.preventDefault();
     };
 
-    const onMouseDownH = (e: MouseEvent) => {
+    const startDraggingH = (e: MouseEvent) => {
         isDraggingH = true;
+        setIsDragging(true);
         document.body.style.cursor = 'row-resize';
+        document.body.classList.add(styles.noSelect);
         e.preventDefault();
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+        if (isDraggingV && mainLayoutRef) {
+            const rect = mainLayoutRef.getBoundingClientRect();
+            // Calculate ratio but keep it within bounds to ensure 32px minimum visibility for BOTH sides
+            const minRatio = 32 / rect.width;
+            const ratio = (e.clientX - rect.left) / rect.width;
+            appStore.updateSize('editor_dc', Math.max(minRatio, Math.min(1 - minRatio, ratio)));
+        }
+        if (isDraggingH && verticalContainerRef) {
+            const rect = verticalContainerRef.getBoundingClientRect();
+            const minRatio = 32 / rect.height;
+            const ratio = (e.clientY - rect.top) / rect.height;
+            appStore.updateSize('dc', Math.max(minRatio, Math.min(1 - minRatio, ratio)));
+        }
+    };
+
+    const handleMouseUp = () => {
+        if (isDraggingV || isDraggingH) {
+            isDraggingV = false;
+            isDraggingH = false;
+            setIsDragging(false);
+            document.body.style.cursor = 'default';
+            document.body.classList.remove(styles.noSelect);
+        }
     };
 
     let resizeFrame: number | null = null;
@@ -85,72 +83,39 @@ export const App = (props: AppProps) => {
         });
     };
 
-    const onMouseMove = (e: MouseEvent) => {
-        if (isDraggingV) {
-            const $mainLayout = $('#main-layout');
-            const totalWidth = $mainLayout.width() || 0;
-            const newEditorWidth = e.clientX;
-
-            const $editor = $('#editor-pane');
-            if (newEditorWidth < 60) {
-                if (paneStates.editor !== 'min') handlePaneStateChange('editor', 'min');
-                $editor.css('width', '32px');
-                $editor.css('flex', '0 0 32px');
-            } else if (totalWidth - newEditorWidth < 60) {
-                // Too far right, don't allow
-            } else {
-                if (paneStates.editor === 'min') handlePaneStateChange('editor', 'restore');
-                $editor.css('width', newEditorWidth + 'px');
-                $editor.css('flex', '0 0 ' + newEditorWidth + 'px');
-            }
-            triggerResize();
-        }
-        if (isDraggingH) {
-            const $vContainer = $('#vertical-container');
-            const totalHeight = $vContainer.height() || 0;
-            const menubarHeight = $('.menu-bar').height() || 0; // Note: menu-bar is outside vertical-container but above it in flow
-            // Actually, clientY is relative to viewport. menubarHeight is correct if it's top:0.
-            const localY = e.clientY - menubarHeight;
-            const newDebugHeight = localY;
-
-            const $debugger = $('#debugger-pane');
-            if (newDebugHeight < 60) {
-                if (paneStates.debugger !== 'min') handlePaneStateChange('debugger', 'min');
-                $debugger.css('height', '32px');
-                $debugger.css('flex', '0 0 32px');
-            } else if (totalHeight - newDebugHeight < 60) {
-                if (paneStates.console !== 'min') handlePaneStateChange('console', 'min');
-                // $debugger stays full height minus console strip
-            } else {
-                if (paneStates.debugger === 'min') handlePaneStateChange('debugger', 'restore');
-                if (paneStates.console === 'min') handlePaneStateChange('console', 'restore');
-                $debugger.css('height', newDebugHeight + 'px');
-                $debugger.css('flex', '0 0 ' + newDebugHeight + 'px');
-            }
-            triggerResize();
-        }
-    };
-
-    const onMouseUp = () => {
-        isDraggingV = false;
-        isDraggingH = false;
-        document.body.style.cursor = 'default';
-    };
+    createEffect(() => {
+        appStore.layout.editorSplit;
+        appStore.layout.dcSplit;
+        triggerResize();
+    });
 
     onMount(() => {
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
     });
 
     onCleanup(() => {
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
     });
 
+    // Ratio-based orientation: Vertical only if the pane is really skinny strictly width-wise
+    const editorOrientation = createMemo(() => appStore.layout.editorSplit < 0.1 ? 'vertical' : 'horizontal');
+
+    // The DC container width determines if its children (Debugger/Console) are skinny width-wise.
+    const dcOrientation = createMemo(() => (1 - appStore.layout.editorSplit) < 0.1 ? 'vertical' : 'horizontal');
+
+    // Debugger and Console only need to be vertical if their parent container (DC) is vertical.
+    // Their own "minimized" state is height-based, which should NOT trigger vertical text orientation.
+    const debugOrientation = dcOrientation;
+    const consoleOrientation = dcOrientation;
+
     return (
-        <div id="app-root" class={styles.app}>
+        <div id="app-root" class={`${styles.app} ${isDragging() ? styles.isDragging : ''}`} style={{
+            "--pane-transition-dur": isDragging() ? "0s" : "0.4s"
+        }}>
             <MenuBar
-                menuState={menuState()}
+                menuState={appStore.vm.state}
                 onRun={props.onRun}
                 onStop={props.onStop}
                 onStep={props.onStep}
@@ -159,46 +124,35 @@ export const App = (props: AppProps) => {
                 onTheme={props.onTheme}
                 onWrap={props.onWrap}
             />
-            <div id="main-layout" class={styles.mainLayout}>
+            <div id="main-layout" class={styles.mainLayout} ref={mainLayoutRef}>
                 <EditorPane
-                    state={paneStates.editor}
-                    onStateChange={(s) => handlePaneStateChange('editor', s)}
                     onZoom={props.onEditorZoom}
+                    orientation={editorOrientation()}
+                    style={{ flex: `${appStore.layout.editorSplit} 1 0px` }}
                 />
 
-                <div
-                    class={`${styles.splitter} ${styles.vSplit}`}
-                    id="v-split"
-                    onMouseDown={onMouseDownV}
-                    style={{ display: (paneStates.editor === 'max' || paneStates.editor === 'min') ? 'none' : 'block' }}
-                ></div>
+                <div class={`${styles.splitter} ${styles.vSplit}`} onMouseDown={startDraggingV}></div>
 
                 <div id="vertical-container"
+                    ref={verticalContainerRef}
                     class={styles.verticalContainer}
                     style={{
-                        flex: paneStates.editor === 'max' ? '0 0 32px' : '1',
-                        gap: paneStates.editor === 'max' ? '20px' : '0'
+                        flex: `${1 - appStore.layout.editorSplit} 1 0px`,
+                        "--pane-transition-dur": isDragging() ? "0s" : "0.4s"
                     }}
                 >
                     <DebuggerPane
-                        state={paneStates.debugger}
-                        onStateChange={(s) => handlePaneStateChange('debugger', s)}
                         onZoom={props.onDebuggerZoom}
-                        orientation={paneStates.editor === 'max' ? 'vertical' : 'horizontal'}
+                        orientation={debugOrientation()}
+                        style={{ flex: `${appStore.layout.dcSplit} 1 0px` }}
                     />
 
-                    <div
-                        class={`${styles.splitter} ${styles.hSplit}`}
-                        id="h-split"
-                        onMouseDown={onMouseDownH}
-                        style={{ display: (paneStates.console === 'max' || paneStates.console === 'min' || paneStates.debugger === 'max' || paneStates.editor === 'max') ? 'none' : 'block' }}
-                    ></div>
+                    <div class={`${styles.splitter} ${styles.hSplit}`} onMouseDown={startDraggingH}></div>
 
                     <ConsolePane
-                        state={paneStates.console}
-                        onStateChange={(s) => handlePaneStateChange('console', s)}
                         onZoom={props.onConsoleZoom}
-                        orientation={paneStates.editor === 'max' ? 'vertical' : 'horizontal'}
+                        orientation={consoleOrientation()}
+                        style={{ flex: `${1 - appStore.layout.dcSplit} 1 0px` }}
                     />
                 </div>
             </div>

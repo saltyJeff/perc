@@ -1,29 +1,21 @@
-import { PaneCtrl } from '../ui/PaneCtrl';
 import { ZoomControl } from '../ui/ZoomControl';
 import styles from './ConsolePane.module.css';
 
-type PaneState = 'min' | 'max' | 'restore';
-
 interface ConsolePaneProps {
-    state: PaneState;
-    onStateChange: (state: PaneState) => void;
     onZoom: (size: number) => void;
     orientation?: 'horizontal' | 'vertical';
+    style?: any;
 }
 
 export const ConsolePane = (props: ConsolePaneProps) => {
     return (
         <div
             id="console-pane"
-            class={`${styles.consolePane} ${props.state === 'max' ? styles.maximized : ''} ${props.state === 'min' ? styles.collapsed : ''} ${props.orientation === 'vertical' ? styles.vertical : ''}`}
+            class={`${styles.consolePane} ${props.orientation === 'vertical' ? styles.vertical : ''}`}
+            style={props.style}
         >
             <div class={styles.header}>
                 <div class={styles.titleArea}>
-                    <PaneCtrl
-                        orientation={props.orientation === 'vertical' ? 'vertical' : 'horizontal'}
-                        state={props.state}
-                        onStateChange={props.onStateChange}
-                    />
                     <span>Console / REPL</span>
                 </div>
                 <div class={styles.controls}>

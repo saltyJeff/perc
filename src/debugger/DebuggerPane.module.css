@@ -5,7 +5,10 @@
     display: flex;
     flex-direction: column;
     position: relative;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Use variables for reactive transition control */
+    transition: flex var(--pane-transition-dur, 0.2s) var(--pane-transition-func, ease),
+        width var(--pane-transition-dur, 0.2s) var(--pane-transition-func, ease),
+        height var(--pane-transition-dur, 0.2s) var(--pane-transition-func, ease);
 }
 
 .header {
@@ -44,15 +47,10 @@
 }
 
 .maximized {
-    flex: 100 1 auto !important;
     z-index: 100;
 }
 
 .collapsed {
-    flex: 0 0 32px !important;
-    height: 32px !important;
-    min-height: 32px !important;
-    max-height: 32px !important;
     overflow: hidden;
 }
 
@@ -62,13 +60,7 @@
 }
 
 .vertical {
-    flex: 1 !important;
-    width: 32px !important;
-    min-width: 32px !important;
-    max-width: 32px !important;
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
+    overflow: hidden;
 }
 
 .vertical .header {

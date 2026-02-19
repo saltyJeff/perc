@@ -1,28 +1,21 @@
-import { PaneCtrl } from '../ui/PaneCtrl';
 import { ZoomControl } from '../ui/ZoomControl';
 import styles from './EditorPane.module.css';
 
-type PaneState = 'min' | 'max' | 'restore';
-
 interface EditorPaneProps {
-    state: PaneState;
-    onStateChange: (state: PaneState) => void;
     onZoom: (size: number) => void;
+    orientation?: 'horizontal' | 'vertical';
+    style?: any;
 }
 
 export const EditorPane = (props: EditorPaneProps) => {
     return (
         <div
             id="editor-pane"
-            class={`${styles.editorPane} ${props.state === 'max' ? styles.maximized : ''} ${props.state === 'min' ? styles.collapsed : ''}`}
+            class={`${styles.editorPane} ${props.orientation === 'vertical' ? styles.vertical : ''}`}
+            style={props.style}
         >
             <div class={styles.header}>
                 <div class={styles.titleArea}>
-                    <PaneCtrl
-                        orientation={props.state === 'min' ? 'vertical' : 'horizontal'}
-                        state={props.state}
-                        onStateChange={props.onStateChange}
-                    />
                     <span>Source Code</span>
                 </div>
                 <div class={styles.controls}>

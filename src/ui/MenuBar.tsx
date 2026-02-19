@@ -1,5 +1,6 @@
 import { createSignal } from 'solid-js';
 import { Switch, Match } from "solid-js";
+import { appStore } from './AppStore';
 import styles from './MenuBar.module.css';
 
 interface MenuBarProps {
@@ -50,6 +51,7 @@ export const MenuBar = (props: MenuBarProps) => {
             <div class={styles.menuSpacer}></div>
 
             <div class={styles.menuOptions}>
+                <button class={styles.menuBtn} onClick={() => appStore.resetLayout()}>Restore Layout</button>
                 <button class={styles.menuBtn} onClick={toggleTheme}>Theme: {theme() === 'light' ? "☀️" : "🌙"}</button>
                 <button class={styles.menuBtn} onClick={toggleWrap}>Wrap: {wrap() === 'on' ? "On" : "Off"}</button>
             </div>

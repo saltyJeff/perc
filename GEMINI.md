@@ -52,6 +52,8 @@
     - theme
     - text wrapping
 
+### Accessiblity
+- the website should meet ADA guidance to address website accessibility barriers
 
 ## VM
 The PerC VM is a stack based VM written in typescript.

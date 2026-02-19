@@ -1,29 +1,21 @@
-import { PaneCtrl } from '../ui/PaneCtrl';
 import { ZoomControl } from '../ui/ZoomControl';
 import styles from './DebuggerPane.module.css';
 
-type PaneState = 'min' | 'max' | 'restore';
-
 interface DebuggerPaneProps {
-    state: PaneState;
-    onStateChange: (state: PaneState) => void;
     onZoom: (size: number) => void;
     orientation?: 'horizontal' | 'vertical';
+    style?: any;
 }
 
 export const DebuggerPane = (props: DebuggerPaneProps) => {
     return (
         <div
             id="debugger-pane"
-            class={`${styles.debuggerPane} ${props.state === 'max' ? styles.maximized : ''} ${props.state === 'min' ? styles.collapsed : ''} ${props.orientation === 'vertical' ? styles.vertical : ''}`}
+            class={`${styles.debuggerPane} ${props.orientation === 'vertical' ? styles.vertical : ''}`}
+            style={props.style}
         >
             <div class={styles.header}>
                 <div class={styles.titleArea}>
-                    <PaneCtrl
-                        orientation={props.orientation === 'vertical' ? 'vertical' : 'horizontal'}
-                        state={props.state}
-                        onStateChange={props.onStateChange}
-                    />
                     <span>Debugger</span>
                 </div>
                 <div class={styles.controls}>
