@@ -1,5 +1,6 @@
 import { createRoot, createSignal } from "solid-js";
 import { Editor } from "./index";
+import { SourceLocation } from "../errors";
 
 function createEditorStore() {
     const [editor, setEditor] = createSignal<Editor | null>(null);
@@ -29,7 +30,7 @@ function createEditorStore() {
         setVariableProvider: (provider: () => string[]) => editor()?.setVariableProvider(provider),
         setBuiltins: (builtins: string[]) => editor()?.setBuiltins(builtins),
 
-        highlightAndScroll: (loc: { start: number, end: number } | { line: number, column: number }, type: 'error' | 'debug' | 'info' = 'info') =>
+        highlightAndScroll: (loc: SourceLocation | { start: number, end: number } | { line: number, column: number }, type: 'error' | 'debug' | 'info' = 'info') =>
             editor()?.highlightAndScroll(loc, type),
     };
 }

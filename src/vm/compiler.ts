@@ -1,6 +1,7 @@
 import type { opcode } from "./opcodes.ts";
 import { perc_number, perc_string, perc_bool, perc_nil } from "./perc_types.ts";
 import { Tree, TreeCursor } from "@lezer/common";
+import { PercCompileError, SourceLocation } from "../errors";
 
 export class Compiler {
     private opcodes: opcode[] = [];
@@ -21,6 +22,15 @@ export class Compiler {
         this.scopes.pop();
     }
 
+    private getLocation(start: number, end: number): SourceLocation {
+        const startPos = this.getLineCol(start);
+        const endPos = this.getLineCol(end);
+        return {
+            start: { offset: start, line: startPos.line, column: startPos.column },
+            end: { offset: end, line: endPos.line, column: endPos.column }
+        };
+    }
+
     private getLineCol(offset: number) {
         const lines = this.source.slice(0, offset).split("\n");
         return {
@@ -32,14 +42,10 @@ export class Compiler {
     private declare_var(name: string, location: { start: number, end: number }) {
         const current = this.scopes[this.scopes.length - 1];
         if (current.has(name)) {
-            const startLoc = this.getLineCol(location.start);
-            const endLoc = this.getLineCol(location.end);
-            const err: any = new Error(`Variable '${name}' already declared in this scope`);
-            err.location = {
-                start: { offset: location.start, line: startLoc.line, column: startLoc.column },
-                end: { offset: location.end, line: endLoc.line, column: endLoc.column }
-            };
-            throw err;
+            throw new PercCompileError(
+                `Variable '${name}' already declared in this scope`,
+                this.getLocation(location.start, location.end)
+            );
         }
         current.add(name);
     }
@@ -117,6 +123,7 @@ export class Compiler {
         let depth = 0;
         // Traverse through wrapper nodes
         while (["PostfixExpression", "PrimaryExpression", "Expression", "Statement", "Literal"].includes(currentType)) {
+            // ... (keep existing implementation of getIdentifierName logic if I was replacing it, but I am inserting expect)
             if (cursor.firstChild()) {
                 depth++;
                 currentType = cursor.name as string;
@@ -136,6 +143,25 @@ export class Compiler {
         return name;
     }
 
+    private expect(cursor: TreeCursor, expected: string, context: string, contextLoc: { start: number, end: number }) {
+        const name = cursor.name as string;
+        if (name === expected) return;
+
+        // If we found an error node, let's look at the location
+        if (name === "⚠") {
+            throw new PercCompileError(
+                `Expected '${expected}' in ${context}, but found syntax error (unexpected token)`,
+                this.getLocation(cursor.from, cursor.to)
+            );
+        }
+
+        // If we found something else, report it
+        throw new PercCompileError(
+            `Expected '${expected}' in ${context}, but found '${name}'`,
+            this.getLocation(cursor.from, cursor.to)
+        );
+    }
+
     private visit(cursor: TreeCursor) {
         const type = cursor.name as string;
         const start = cursor.from;
@@ -151,13 +177,43 @@ export class Compiler {
                 }
 
                 if (cursor.firstChild()) {
+                    // Check for opening brace if Block
+                    if (type === "Block") {
+                        if ((cursor.name as string) !== "{") {
+                            // This is weird, Block should start with {
+                            // But Lezer might be resilient.
+                        }
+                    }
+
                     do {
                         const n = cursor.name as string;
+                        if (n === "⚠") {
+                            // Syntax error inside block/file
+                            // Check if it's likely a missing semicolon or brace
+                            throw new PercCompileError(
+                                `Unexpected syntax in ${type}. check for missing ';' or '}'`,
+                                this.getLocation(cursor.from, cursor.to)
+                            );
+                        }
                         if (n !== "{" && n !== "}" && n !== ";" && n !== "LineComment" && n !== "BlockComment") {
                             this.visit(cursor);
                         }
                     } while (cursor.nextSibling());
+
+                    // If Block, verify last child was "}"
+                    if (type === "Block") {
+                        if ((cursor.name as string) !== "}") {
+                            throw new PercCompileError(
+                                "Missing closing '}' for block",
+                                this.getLocation(end, end) // Point to end of block
+                            );
+                        }
+                    }
+
                     cursor.parent();
+                } else {
+                    // Empty block without children? 
+                    // {} -> firstChild is { ...
                 }
 
                 if (type === "Block") {
@@ -166,6 +222,115 @@ export class Compiler {
                 }
                 break;
 
+            // ... (Variable declarations seem fine, mostly sequence of children)
+            // But let's check IfStatement carefully
+            case "IfStatement":
+                cursor.firstChild(); // if
+                if (!cursor.nextSibling()) throw new PercCompileError("Unexpected end of IfStatement", this.getLocation(end, end)); // Should not happen with validation
+
+                this.expect(cursor, "(", "if statement", loc);
+
+                if (!cursor.nextSibling()) throw new PercCompileError("Missing condition in if statement", this.getLocation(end, end));
+                // Expression
+                this.visit(cursor);
+
+                if (!cursor.nextSibling()) throw new PercCompileError("Missing closing ')' in if statement", this.getLocation(end, end));
+                this.expect(cursor, ")", "if statement", loc);
+
+                const jumpIfFalseIdx = this.opcodes.length;
+                this.emit({ type: 'jump_if_false', addr: 0 }, loc);
+
+                if (!cursor.nextSibling()) throw new PercCompileError("Missing 'then' in if statement", this.getLocation(end, end));
+                this.expect(cursor, "then", "if statement", loc);
+
+                if (!cursor.nextSibling()) throw new PercCompileError("Missing block in if statement", this.getLocation(end, end));
+                // Block
+                this.visit(cursor);
+
+                const jumpToEndIdx = this.opcodes.length;
+                this.emit({ type: 'jump', addr: 0 }, loc);
+                (this.opcodes[jumpIfFalseIdx] as any).addr = this.opcodes.length;
+
+                if (cursor.nextSibling()) {
+                    if ((cursor.name as string) === "else") {
+                        if (!cursor.nextSibling()) throw new PercCompileError("Missing block after else", this.getLocation(end, end));
+                        // Block or IfStatement
+                        this.visit(cursor);
+                    }
+                }
+                (this.opcodes[jumpToEndIdx] as any).addr = this.opcodes.length;
+                cursor.parent();
+                break;
+
+            case "WhileStatement":
+                const whileStartAddr = this.opcodes.length;
+                cursor.firstChild(); // while
+
+                if (!cursor.nextSibling()) throw new PercCompileError("Missing '(' in while loop", this.getLocation(end, end));
+                this.expect(cursor, "(", "while loop", loc);
+
+                if (!cursor.nextSibling()) throw new PercCompileError("Missing condition in while loop", this.getLocation(end, end));
+                this.visit(cursor); // Expression
+
+                const whileJumpOutIdx = this.opcodes.length;
+                this.emit({ type: 'jump_if_false', addr: 0 }, loc);
+
+                if (!cursor.nextSibling()) throw new PercCompileError("Missing ')' in while loop", this.getLocation(end, end));
+                this.expect(cursor, ")", "while loop", loc);
+
+                if (!cursor.nextSibling()) throw new PercCompileError("Missing 'then' in while loop", this.getLocation(end, end));
+                this.expect(cursor, "then", "while loop", loc);
+
+                if (!cursor.nextSibling()) throw new PercCompileError("Missing block in while loop", this.getLocation(end, end));
+                this.visit(cursor); // Block
+
+                this.emit({ type: 'jump', addr: whileStartAddr }, loc);
+                (this.opcodes[whileJumpOutIdx] as any).addr = this.opcodes.length;
+                cursor.parent();
+                break;
+
+            case "ForInStatement":
+                cursor.firstChild(); // for
+                if (!cursor.nextSibling()) throw new PercCompileError("Missing '(' in for loop", this.getLocation(end, end));
+                this.expect(cursor, "(", "for loop", loc);
+
+                if (!cursor.nextSibling()) throw new PercCompileError("Missing 'init' in for loop", this.getLocation(end, end));
+                this.expect(cursor, "init", "for loop", loc);
+
+                if (!cursor.nextSibling()) throw new PercCompileError("Missing identifier in for loop", this.getLocation(end, end));
+                const iterItem = this.source.slice(cursor.from, cursor.to);
+
+                if (!cursor.nextSibling()) throw new PercCompileError("Missing 'in' in for loop", this.getLocation(end, end));
+                this.expect(cursor, "in", "for loop", loc);
+
+                if (!cursor.nextSibling()) throw new PercCompileError("Missing iterable expression in for loop", this.getLocation(end, end));
+                this.visit(cursor); // Expression
+
+                this.emit({ type: 'get_iter' }, loc);
+                const forStartAddr = this.opcodes.length;
+                this.emit({ type: 'iter_next' }, loc);
+                const forJumpOutIdx = this.opcodes.length;
+                this.emit({ type: 'jump_if_false', addr: 0 }, loc);
+                this.enter_scope();
+                this.declare_var(iterItem, loc);
+                this.emit({ type: 'init', name: iterItem, catch: false }, loc);
+
+                if (!cursor.nextSibling()) throw new PercCompileError("Missing ')' in for loop", this.getLocation(end, end));
+                this.expect(cursor, ")", "for loop", loc);
+
+                if (!cursor.nextSibling()) throw new PercCompileError("Missing 'then' in for loop", this.getLocation(end, end));
+                this.expect(cursor, "then", "for loop", loc);
+
+                if (!cursor.nextSibling()) throw new PercCompileError("Missing block in for loop", this.getLocation(end, end));
+                this.visit(cursor); // Block
+
+                this.exit_scope();
+                this.emit({ type: 'jump', addr: forStartAddr }, loc);
+                (this.opcodes[forJumpOutIdx] as any).addr = this.opcodes.length;
+                cursor.parent();
+                break;
+
+            // Rest can roughly stay the same for now, except generic error handler
             case "Statement":
             case "Expression":
             case "PostfixExpression":
@@ -231,78 +396,6 @@ export class Compiler {
                 cursor.parent();
                 break;
 
-            case "IfStatement":
-                cursor.firstChild(); // if
-                cursor.nextSibling(); // (
-                cursor.nextSibling(); // Expression
-                this.visit(cursor);
-
-                const jumpIfFalseIdx = this.opcodes.length;
-                this.emit({ type: 'jump_if_false', addr: 0 }, loc);
-
-                cursor.nextSibling(); // )
-                cursor.nextSibling(); // then
-                cursor.nextSibling(); // Block
-                this.visit(cursor);
-
-                const jumpToEndIdx = this.opcodes.length;
-                this.emit({ type: 'jump', addr: 0 }, loc);
-                (this.opcodes[jumpIfFalseIdx] as any).addr = this.opcodes.length;
-
-                if (cursor.nextSibling()) {
-                    if ((cursor.name as string) === "else") {
-                        cursor.nextSibling(); // Block or IfStatement
-                        this.visit(cursor);
-                    }
-                }
-                (this.opcodes[jumpToEndIdx] as any).addr = this.opcodes.length;
-                cursor.parent();
-                break;
-
-            case "WhileStatement":
-                const whileStartAddr = this.opcodes.length;
-                cursor.firstChild(); // while
-                cursor.nextSibling(); // (
-                cursor.nextSibling(); // Expression
-                this.visit(cursor);
-                const whileJumpOutIdx = this.opcodes.length;
-                this.emit({ type: 'jump_if_false', addr: 0 }, loc);
-                cursor.nextSibling(); // )
-                cursor.nextSibling(); // then
-                cursor.nextSibling(); // Block
-                this.visit(cursor);
-                this.emit({ type: 'jump', addr: whileStartAddr }, loc);
-                (this.opcodes[whileJumpOutIdx] as any).addr = this.opcodes.length;
-                cursor.parent();
-                break;
-
-            case "ForInStatement":
-                cursor.firstChild(); // for
-                cursor.nextSibling(); // (
-                cursor.nextSibling(); // init
-                cursor.nextSibling(); // Identifier
-                const iterItem = this.source.slice(cursor.from, cursor.to);
-                cursor.nextSibling(); // in
-                cursor.nextSibling(); // Expression
-                this.visit(cursor);
-                this.emit({ type: 'get_iter' }, loc);
-                const forStartAddr = this.opcodes.length;
-                this.emit({ type: 'iter_next' }, loc);
-                const forJumpOutIdx = this.opcodes.length;
-                this.emit({ type: 'jump_if_false', addr: 0 }, loc);
-                this.enter_scope();
-                this.declare_var(iterItem, loc);
-                this.emit({ type: 'init', name: iterItem, catch: false }, loc);
-                cursor.nextSibling(); // )
-                cursor.nextSibling(); // then
-                cursor.nextSibling(); // Block
-                this.visit(cursor);
-                this.exit_scope();
-                this.emit({ type: 'jump', addr: forStartAddr }, loc);
-                (this.opcodes[forJumpOutIdx] as any).addr = this.opcodes.length;
-                cursor.parent();
-                break;
-
             case "ReturnStatement":
                 cursor.firstChild(); // return
                 if (cursor.nextSibling()) {
@@ -351,7 +444,7 @@ export class Compiler {
                 if (calleeName === "typeof") {
                     cursor.nextSibling(); // ArgumentList
                     const count = this.visitArgumentList(cursor);
-                    if (count !== 1) throw new Error("typeof expects exactly 1 argument");
+                    if (count !== 1) throw new PercCompileError("typeof expects exactly 1 argument", this.getLocation(start, end));
                     this.emit({ type: 'typeof' }, loc);
                     cursor.parent();
                     break;
@@ -511,13 +604,10 @@ export class Compiler {
                 break;
 
             case "⚠":
-                const errPos = this.getLineCol(start);
-                const syntaxErr: any = new Error(`Unexpected token or expression`);
-                syntaxErr.location = {
-                    start: { offset: start, line: errPos.line, column: errPos.column },
-                    end: { offset: end, line: errPos.line, column: errPos.column } // Best guess for end is start for single point error
-                };
-                throw syntaxErr;
+                throw new PercCompileError(
+                    `Unexpected token or expression.`,
+                    this.getLocation(start, end)
+                );
 
             default:
                 break;

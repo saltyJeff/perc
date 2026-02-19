@@ -3,6 +3,7 @@ import { Compiler } from './vm/compiler';
 import { GUIManager } from './gui_window/manager';
 import { perc_string } from './vm/perc_types';
 import { parser } from './lang.grammar';
+import { PercCompileError } from './errors';
 
 import './style.css';
 import './console/console.css';
@@ -123,11 +124,15 @@ const initApp = () => {
             runVM();
         } catch (e: any) {
             console.error(e);
-            consoleActions.addEntry(`Run Error: ${e.message}`, 'error');
+            if (e instanceof PercCompileError && e.location) {
+                consoleActions.addEntry(`Run Error: ${e.message}`, 'error', [e.location.start.offset, e.location.end.offset]);
+                editorStore.highlightAndScroll(e.location, 'error');
+            } else {
+                consoleActions.addEntry(`Run Error: ${e.message}`, 'error');
+            }
             stopVM();
         }
     };
-
     const handleStop = () => {
         consoleActions.addEntry("Stop: Execution halted.", 'status');
         stopVM();
@@ -144,10 +149,15 @@ const initApp = () => {
             compiler.compile(code, tree);
             consoleActions.addEntry("Build: No errors found.", 'status');
         } catch (e: any) {
-            const loc = e.location ? e.location.start : null;
-            if (loc) {
+            if (e instanceof PercCompileError && e.location) {
+                const msg = e.message;
+                consoleActions.addEntry(`Build Error: ${msg}`, 'error', [e.location.start.offset, e.location.end.offset]);
+                editorStore.highlightAndScroll(e.location, 'error');
+            } else if (e.location && e.location.start) {
+                // Legacy error handling if any
+                const loc = e.location.start;
                 const msg = e.message.replace(/^Error:\s*/, '');
-                consoleActions.addEntry(`Build Error: ${msg}`, 'error', e.location ? [e.location.start.offset, e.location.end.offset] : undefined);
+                consoleActions.addEntry(`Build Error: ${msg}`, 'error', e.location.end ? [e.location.start.offset, e.location.end.offset] : undefined);
                 editorStore.highlightError(loc.line, loc.column);
             } else {
                 consoleActions.addEntry(`Build Error: ${e.message}`, 'error');
@@ -182,7 +192,9 @@ const initApp = () => {
                     }
                 }
             } catch (err: any) {
-                if (err.location) {
+                if (err instanceof PercCompileError && err.location) {
+                    consoleActions.addEntry(err.message, 'error', [err.location.start.offset, err.location.end.offset]);
+                } else if (err.location) {
                     consoleActions.addEntry(err.message, 'error', [err.location.start.offset, err.location.end.offset]);
                 } else {
                     consoleActions.addEntry(err.message, 'error');

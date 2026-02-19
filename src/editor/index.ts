@@ -238,17 +238,23 @@ while(true) then {
         this.updateExtensions();
     }
 
-    public highlightAndScroll(loc: SourceLocation | { line: number, column: number }, type: 'error' | 'debug' | 'info' = 'info') {
+    public highlightAndScroll(loc: SourceLocation | { start: number, end: number } | { line: number, column: number }, type: 'error' | 'debug' | 'info' = 'info') {
         let from, to;
         try {
             if ('line' in loc && !('start' in loc)) {
+                // { line, column }
                 const line = this.view.state.doc.line(loc.line);
                 from = line.from + loc.column - 1;
                 to = Math.min(from + 1, line.to);
+            } else if ('start' in loc && typeof loc.start === 'number') {
+                // { start: number, end: number }
+                const range = loc as { start: number, end: number };
+                from = range.start;
+                to = range.end;
             } else {
                 const sloc = loc as SourceLocation;
                 // If it's a SourceLocation, we might have offsets or we might need to calculate from lines
-                if (sloc.start.offset !== undefined) {
+                if (sloc.start && sloc.start.offset !== undefined) {
                     from = sloc.start.offset;
                     to = sloc.end.offset;
                 } else {
