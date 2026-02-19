@@ -22,18 +22,23 @@ export const ZoomControl = (props: ZoomControlProps) => {
     };
 
     return (
-        <div class={styles.zoomControl}>
-            <button class={styles.zoomBtn} onClick={() => updateZoom(zoom() - 10)} title="Zoom Out">-</button>
+        <div class={styles.zoomControl} role="group" aria-label="Zoom Controls">
+            <button class={styles.zoomBtn} onClick={() => updateZoom(zoom() - 10)} title="Zoom Out" aria-label="Zoom Out">-</button>
+            <label for="zoom-slider" class={styles.srOnly}>Zoom Level</label>
             <input
+                id="zoom-slider"
                 type="range"
                 min={min}
                 max={max}
                 value={zoom()}
                 class={styles.zoomSlider}
                 onInput={(e) => updateZoom(parseInt(e.currentTarget.value))}
+                aria-valuemin={min}
+                aria-valuemax={max}
+                aria-valuenow={zoom()}
             />
-            <button class={styles.zoomBtn} onClick={() => updateZoom(zoom() + 10)} title="Zoom In">+</button>
-            <button class={styles.zoomReset} onClick={() => updateZoom(100)} title="Reset to 100%">
+            <button class={styles.zoomBtn} onClick={() => updateZoom(zoom() + 10)} title="Zoom In" aria-label="Zoom In">+</button>
+            <button class={styles.zoomReset} onClick={() => updateZoom(100)} title="Reset to 100%" aria-label="Reset Zoom to 100%">
                 {zoom()}%
             </button>
         </div>

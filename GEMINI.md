@@ -53,7 +53,17 @@
     - text wrapping
 
 ### Accessiblity
-- the website should meet ADA guidance to address website accessibility barriers
+The PerC IDE is designed to meet WCAG 2.1 Level AA standards to ensure inclusivity for all students:
+- **Semantic HTML**: Proper use of `<header>`, `<nav>`, `<main>`, `<section>`, and `<h2>` for clear document structure.
+- **Skip to Editor**: Focusable link at the top of the page to bypass navigation for keyboard users.
+- **Keyboard Navigation**:
+    - All interactive elements, including pane splitters, are focusable and operable via keyboard.
+    - Splitters use `role="separator"` and report their position via `aria-valuenow`.
+- **Screen Reader Support**:
+    - Descriptive `aria-label` tags for all icon-only buttons (Run, Stop, Build).
+    - Visually hidden labels and headers using `.sr-only` to provide context without cluttering the UI.
+    - `aria-live="polite"` regions for dynamic updates in the Console and Debugger.
+- **Forms & Inputs**: All inputs and range sliders have associated `<label>` elements or descriptive `aria-label` tags.
 
 ## VM
 The PerC VM is a stack based VM written in typescript.

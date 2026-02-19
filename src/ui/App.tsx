@@ -3,7 +3,7 @@ import { MenuBar } from './MenuBar';
 import { EditorPane } from '../editor/EditorPane';
 import { DebuggerPane } from '../debugger/DebuggerPane';
 import { ConsolePane } from '../console/ConsolePane';
-import { appStore, DividerId, VMState } from './AppStore';
+import { appStore, VMState } from './AppStore';
 import styles from './App.module.css';
 
 interface AppProps {
@@ -114,6 +114,7 @@ export const App = (props: AppProps) => {
         <div id="app-root" class={`${styles.app} ${isDragging() ? styles.isDragging : ''}`} style={{
             "--pane-transition-dur": isDragging() ? "0s" : "0.4s"
         }}>
+            <a href="#editor" class={styles.skipLink}>Skip to Editor</a>
             <MenuBar
                 menuState={appStore.vm.state}
                 onRun={props.onRun}
@@ -124,14 +125,22 @@ export const App = (props: AppProps) => {
                 onTheme={props.onTheme}
                 onWrap={props.onWrap}
             />
-            <div id="main-layout" class={styles.mainLayout} ref={mainLayoutRef}>
+            <main id="main-layout" class={styles.mainLayout} ref={mainLayoutRef}>
                 <EditorPane
                     onZoom={props.onEditorZoom}
                     orientation={editorOrientation()}
                     style={{ flex: `${appStore.layout.editorSplit} 1 0px` }}
                 />
 
-                <div class={`${styles.splitter} ${styles.vSplit}`} onMouseDown={startDraggingV}></div>
+                <div
+                    class={`${styles.splitter} ${styles.vSplit}`}
+                    onMouseDown={startDraggingV}
+                    role="separator"
+                    aria-orientation="vertical"
+                    aria-valuenow={Math.round(appStore.layout.editorSplit * 100)}
+                    aria-label="Editor and side panel resizer"
+                    tabindex="0"
+                ></div>
 
                 <div id="vertical-container"
                     ref={verticalContainerRef}
@@ -147,7 +156,15 @@ export const App = (props: AppProps) => {
                         style={{ flex: `${appStore.layout.dcSplit} 1 0px` }}
                     />
 
-                    <div class={`${styles.splitter} ${styles.hSplit}`} onMouseDown={startDraggingH}></div>
+                    <div
+                        class={`${styles.splitter} ${styles.hSplit}`}
+                        onMouseDown={startDraggingH}
+                        role="separator"
+                        aria-orientation="horizontal"
+                        aria-valuenow={Math.round(appStore.layout.dcSplit * 100)}
+                        aria-label="Debugger and console resizer"
+                        tabindex="0"
+                    ></div>
 
                     <ConsolePane
                         onZoom={props.onConsoleZoom}
@@ -155,7 +172,7 @@ export const App = (props: AppProps) => {
                         style={{ flex: `${1 - appStore.layout.dcSplit} 1 0px` }}
                     />
                 </div>
-            </div>
+            </main>
         </div>
     );
 };

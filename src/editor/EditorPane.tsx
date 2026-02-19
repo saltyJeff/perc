@@ -9,22 +9,23 @@ interface EditorPaneProps {
 
 export const EditorPane = (props: EditorPaneProps) => {
     return (
-        <div
+        <section
             id="editor-pane"
             class={`${styles.editorPane} ${props.orientation === 'vertical' ? styles.vertical : ''}`}
+            aria-labelledby="editor-title"
             style={props.style}
         >
             <div class={styles.header}>
                 <div class={styles.titleArea}>
-                    <span>Source Code</span>
+                    <h2 id="editor-title" class={styles.title}>Source Code</h2>
                 </div>
                 <div class={styles.controls}>
                     <ZoomControl onZoom={props.onZoom} minZoomPct={25} maxZoomPct={500} />
                 </div>
             </div>
             <div class={styles.content}>
-                <div id="editor" class="pane-content"></div>
+                <div id="editor" class="pane-content" role="textbox" aria-multiline="true" aria-label="Source Code Editor"></div>
             </div>
-        </div>
+        </section>
     );
 };

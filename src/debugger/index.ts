@@ -52,6 +52,15 @@ export class Debugger {
         });
 
         $table.append($colgroup);
+
+        const $thead = $('<thead>', { class: 'sr-only' });
+        const $headerRow = $('<tr>');
+        headers.forEach(h => {
+            $headerRow.append($('<th>', { text: h, scope: 'col' }));
+        });
+        $thead.append($headerRow);
+        $table.append($thead);
+
         $table.append($('<tbody>'));
         return $table;
     }
@@ -154,7 +163,12 @@ export class Debugger {
 
             // Add resizer if not the last column
             if (i < cellsInRow - 1) {
-                $td.append($('<div>', { class: 'col-resizer' }));
+                $td.append($('<div>', {
+                    class: 'col-resizer',
+                    role: 'separator',
+                    'aria-label': 'Column resizer',
+                    tabindex: '0'
+                }));
             }
 
             $tr.append($td);
