@@ -16,6 +16,7 @@ import { createConsoleBuiltins } from './console/builtins';
 import { createGuiBuiltins } from './gui_window/builtins';
 import { App } from './ui/App';
 import { createConsoleStore } from './console/ConsoleStore';
+import { editorStore } from './editor/EditorStore';
 
 console.log('PerC IDE initializing...');
 
@@ -23,7 +24,6 @@ const initApp = () => {
     // Initialize Theme
     document.body.classList.add('dark-theme');
 
-    let editor: any; // Will be initialized by Editor component or via legacy ref
     const vm = new VM();
     const [consoleState, consoleActions] = createConsoleStore();
     const gui = new GUIManager();
@@ -36,14 +36,19 @@ const initApp = () => {
     let currentRunner: Generator | null = null;
     const BATCH_SIZE = 100;
 
-    const stopVM = () => {
+    const updateToolbarState = (state: 'idle' | 'running' | 'paused' | 'input') => {
+        let menuState: string = state;
+        if (state === 'paused') menuState = 'debugging';
+        if ((window as any).setMenuState) (window as any).setMenuState(menuState);
+    };
 
+    const stopVM = () => {
         isPaused = false;
         isWaitingForInput = false;
         if (executionInterval) clearInterval(executionInterval);
         executionInterval = null;
         currentRunner = null;
-        if (editor) editor.enter_idle_mode();
+        editorStore.enter_idle_mode();
         updateToolbarState('idle');
 
         vm.reset_state(); // This also resets debugStore in the VM
@@ -54,10 +59,9 @@ const initApp = () => {
     const runVM = async () => {
         if (!currentRunner) return;
 
-
         isPaused = false;
         updateToolbarState('running');
-        if (editor) editor.enter_run_mode();
+        editorStore.enter_run_mode();
 
         return new Promise<void>((resolve) => {
             executionInterval = setInterval(() => {
@@ -107,8 +111,8 @@ const initApp = () => {
         }
 
         consoleActions.addEntry("Run: Starting execution...", 'status');
-        if (!editor) return;
-        const code = editor.getValue();
+        const code = editorStore.getValue();
+
         try {
             const compiler = new Compiler(Array.from(vm.get_foreign_funcs().keys()));
             const tree = parser.parse(code);
@@ -131,9 +135,9 @@ const initApp = () => {
 
     const handleBuild = () => {
         consoleActions.addEntry("Build: Compiling...", 'status');
-        if (editor) editor.clearErrorHighlight();
-        if (!editor) return;
-        const code = editor.getValue();
+        editorStore.clearErrorHighlight();
+        const code = editorStore.getValue();
+
         try {
             const compiler = new Compiler(Array.from(vm.get_foreign_funcs().keys()));
             const tree = parser.parse(code);
@@ -144,7 +148,7 @@ const initApp = () => {
             if (loc) {
                 const msg = e.message.replace(/^Error:\s*/, '');
                 consoleActions.addEntry(`Build Error: ${msg}`, 'error', e.location ? [e.location.start.offset, e.location.end.offset] : undefined);
-                editor.highlightError(loc.line, loc.column);
+                editorStore.highlightError(loc.line, loc.column);
             } else {
                 consoleActions.addEntry(`Build Error: ${e.message}`, 'error');
             }
@@ -187,19 +191,8 @@ const initApp = () => {
         }
     };
 
-    const updateToolbarState = (state: 'idle' | 'running' | 'paused' | 'input') => {
-        let menuState: string = state;
-        if (state === 'paused') menuState = 'debugging';
-        if ((window as any).setMenuState) (window as any).setMenuState(menuState);
-    };
-
     const appRoot = document.getElementById('app');
     if (appRoot) {
-        (window as any).setEditor = (e: any) => {
-            editor = e;
-            (window as any).editor = e;
-        };
-
         render(() => {
             onMount(() => {
                 // Wire VM Events
@@ -214,13 +207,13 @@ const initApp = () => {
                         consoleActions.addEntry("Type input below and press Enter...", 'log');
                     },
                     on_node_eval: (range) => {
-                        if (editor) editor.highlightRange(range[0], range[1]);
+                        editorStore.highlightRange(range[0], range[1]);
                     },
                     on_debugger: () => {
                         isPaused = true;
                         updateToolbarState('paused');
                         if ((window as any).setPaneState) (window as any).setPaneState('debugger', 'restore');
-                        if (editor) editor.enter_debug_mode();
+                        editorStore.enter_debug_mode();
                     },
                     on_state_dump: () => {
                         vm.syncDebugStore();
@@ -242,11 +235,10 @@ const initApp = () => {
                 vm.register_builtins(createConsoleBuiltins(legacyConsole as any));
                 vm.register_builtins(createGuiBuiltins(gui));
 
-                if (editor) {
-                    editor.setVariableProvider(() => {
-                        return Array.from(vm.get_global_scope().values.keys());
-                    });
-                }
+                editorStore.setVariableProvider(() => {
+                    return Array.from(vm.get_global_scope().values.keys());
+                });
+                editorStore.setBuiltins(Array.from(vm.get_foreign_funcs().keys()));
 
                 consoleActions.addEntry("Welcome to PerC IDE v0.1", 'status');
             });
@@ -265,10 +257,10 @@ const initApp = () => {
                 onTheme={(t) => {
                     document.body.classList.remove('dark-theme', 'light-theme', 'contrast-theme');
                     document.body.classList.add(`${t}-theme`);
-                    if (editor) editor.setTheme(t);
+                    editorStore.setTheme(t);
                 }}
-                onWrap={(w) => editor && editor.setWordWrap(w === 'on')}
-                onEditorZoom={(size) => editor && editor.setFontSize(size)}
+                onWrap={(w) => editorStore.setWordWrap(w === 'on')}
+                onEditorZoom={(size) => editorStore.setFontSize(size)}
                 onDebuggerZoom={(size) => {
                     const el = document.getElementById('debugger-content');
                     if (el) el.style.fontSize = (size * 14 / 100) + 'px';

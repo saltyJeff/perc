@@ -2,6 +2,8 @@ import { ZoomControl } from '../ui/ZoomControl';
 import styles from './ConsolePane.module.css';
 import { For, createEffect } from 'solid-js';
 import { ConsoleState } from './ConsoleStore';
+import { editorStore } from '../editor/EditorStore';
+
 
 interface ConsolePaneProps {
     state: ConsoleState;
@@ -69,7 +71,7 @@ export const ConsolePane = (props: ConsolePaneProps) => {
                         {(entry) => (
                             <div
                                 class={`console-entry ${entry.type} ${entry.location ? 'console-error-link' : ''}`}
-                                onClick={() => entry.location && (window as any).editor?.highlightAndScroll(entry.location, 'error')}
+                                onClick={() => entry.location && editorStore.highlightAndScroll({ start: entry.location[0], end: entry.location[1] }, 'error')}
                                 title={entry.location ? 'Click to show error location' : ''}
                                 style={{
                                     cursor: entry.location ? 'pointer' : 'default',

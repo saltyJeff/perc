@@ -1,7 +1,8 @@
-import { onMount } from 'solid-js';
+import { onMount, onCleanup } from 'solid-js';
 import { ZoomControl } from '../ui/ZoomControl';
 import styles from './EditorPane.module.css';
 import { Editor } from './index';
+import { editorStore } from './EditorStore';
 
 interface EditorPaneProps {
     onZoom: (size: number) => void;
@@ -12,9 +13,12 @@ interface EditorPaneProps {
 export const EditorPane = (props: EditorPaneProps) => {
     onMount(() => {
         const editor = new Editor('editor');
-        if ((window as any).setEditor) {
-            (window as any).setEditor(editor);
-        }
+        // Initial configuration if needed
+        editorStore.setInstance(editor);
+    });
+
+    onCleanup(() => {
+        editorStore.setInstance(null);
     });
 
     return (

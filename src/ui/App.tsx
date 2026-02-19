@@ -41,6 +41,7 @@ export const App = (props: AppProps) => {
         }
     };
 
+
     // Resizing logic
     let isDraggingV = false;
     let isDraggingH = false;
@@ -87,16 +88,10 @@ export const App = (props: AppProps) => {
         }
     };
 
-    let resizeFrame: number | null = null;
     const triggerResize = () => {
-        if (resizeFrame) return;
-        resizeFrame = requestAnimationFrame(() => {
-            if ((window as any).editor && typeof (window as any).editor.resize === 'function') {
-                (window as any).editor.resize();
-            }
-            resizeFrame = null;
-        });
+        // CodeMirror 6 handles resize automatically
     };
+
 
     createEffect(() => {
         appStore.layout.editorSplit;

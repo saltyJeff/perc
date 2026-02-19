@@ -24,7 +24,7 @@ export const ZoomControl = (props: ZoomControlProps) => {
     return (
         <div class={styles.zoomControl} role="group" aria-label="Zoom Controls">
             <button class={styles.zoomBtn} onClick={() => updateZoom(zoom() - 10)} title="Zoom Out" aria-label="Zoom Out">-</button>
-            <label for="zoom-slider" class={styles.srOnly}>Zoom Level</label>
+            <label for="zoom-slider" class="sr-only">Zoom Level</label>
             <input
                 id="zoom-slider"
                 type="range"

@@ -10,6 +10,7 @@ import { perc } from "./perc-language";
 import { indentWithTab } from "@codemirror/commands";
 import { indentUnit } from "@codemirror/language";
 import { autocompletion } from "@codemirror/autocomplete";
+import { SourceLocation } from "../errors";
 
 type HighlightRange = { from: number, to: number };
 
@@ -63,7 +64,97 @@ export class Editor {
         this.container = container;
 
         this.view = new EditorView({
-            state: this.createState(""),
+            state: this.createState(
+                `// PerC GUI Kitchen Sink
+init x = 100;
+init y = 100;
+init msg = "Click me!";
+init val = 50;
+
+while(true) then {
+    window(800, 600);
+    
+    fill(rgb(255, 255, 255));
+    rect(0, 0, 800, 600);
+    
+    fill(rgb(0, 0, 0));
+    text("Welcome to PerC GUI!", 320, 30, "center");
+    
+    if (button(msg, 10, 50)) then {
+        change msg = "Clicked!";
+        change x = x + 10;
+    }
+    
+    fill(rgb(200, 100, 100));
+    circle(x, 150, 50);
+    
+    stroke(rgb(100, 200, 100), 5);
+    line(10, 250, 300, 250);
+    
+    text("Slider Value: " + val, 10, 280, "left");
+    change val = slider(10, 300);
+    
+    fill(rgb(100, 100, 255));
+    polygon(400, 100, new [new {"x": 0, "y": 0}, new {"x": 50, "y": 0}, new {"x": 25, "y": 50}]);
+    
+    // Grouped transformations - will be reset after end_group
+    group();
+    translate(500, 300);
+    rotate(0.1);
+    fill(rgb(255, 255, 0));
+    rect(0, 0, 100, 50);
+    end_group();
+    
+    // Draw a smiley face using sprite (8x8 pixels) - scaled up 10x
+    init yellow = rgb(255, 255, 0);
+    init black = rgb(0, 0, 0);
+    init faceData = new [
+        yellow, yellow, yellow, yellow, yellow, yellow, yellow, yellow,
+        yellow, yellow, black, yellow, yellow, black, yellow, yellow,
+        yellow, yellow, black, yellow, yellow, black, yellow, yellow,
+        yellow, yellow, yellow, yellow, yellow, yellow, yellow, yellow,
+        yellow, black, yellow, yellow, yellow, yellow, black, yellow,
+        yellow, yellow, black, yellow, yellow, black, yellow, yellow,
+        yellow, yellow, yellow, black, black, yellow, yellow, yellow,
+        yellow, yellow, yellow, yellow, yellow, yellow, yellow, yellow
+    ];
+    group();
+    translate(600, 50);
+    scale(10, 10);
+    sprite(0, 0, 8, 8, faceData);
+    end_group();
+    
+    // Textbox widget
+    fill(rgb(0, 0, 0));
+    text("Enter text:", 10, 350, "left");
+    init userText = textbox(10, 370);
+    text("You typed: " + userText, 10, 410, "left");
+    
+    // Checkbox widget (green check on black border)
+    fill(rgb(0, 255, 0));
+    stroke(rgb(0, 0, 0));
+    init isChecked = checkbox(10, 430);
+    text("Checkbox: " + isChecked, 40, 440, "left");
+    
+    // Radio button group "Colors"
+    fill(rgb(128, 0, 128));
+    stroke(rgb(0, 0, 255));
+    init isRed = radio("Colors", 10, 460);
+    text("Red: " + isRed, 40, 470, "left");
+    
+    init isBlue = radio("Colors", 30, 460);
+    text("Blue: " + isBlue, 40, 500, "left");
+    
+    // Transparency demonstration (drawing blue on top of red)
+    fill(rgba(0, 0, 255, 0.5));
+    rect(400, 400, 100, 100);
+    
+    fill(rgba(255, 0, 0, 0.5));
+    rect(350, 350, 100, 100);
+    
+    end_window();
+            }`
+            ),
             parent: container
         });
     }
@@ -119,14 +210,17 @@ export class Editor {
         return this.view.state.doc.toString();
     }
 
-    public resize() {
-        // CodeMirror 6 usually handles resize automatically
-    }
-
     public setFontSize(pct: number) {
-        // TODO: update font compartment instead of the whole thing.
         this.fontSize = Math.round(pct * 14 / 100);
-        this.updateExtensions();
+        this.view.dispatch({
+            effects: this.fontSizeCompartment.reconfigure(EditorView.theme({
+                "&": { height: "100%" },
+                ".cm-scroller": { overflow: "auto" },
+                ".cm-content, .cm-gutters": { minHeight: "100%" },
+                ".cm-content": { fontSize: `${this.fontSize}px` },
+                ".cm-gutters": { fontSize: `${this.fontSize}px` }
+            }))
+        });
     }
 
     public setTheme(theme: 'dark' | 'light' | 'contrast') {
@@ -144,16 +238,24 @@ export class Editor {
         this.updateExtensions();
     }
 
-    public highlightAndScroll(loc: { start: number, end: number } | { line: number, column: number }, type: 'error' | 'debug' | 'info' = 'info') {
+    public highlightAndScroll(loc: SourceLocation | { line: number, column: number }, type: 'error' | 'debug' | 'info' = 'info') {
         let from, to;
         try {
-            if ('line' in loc) {
+            if ('line' in loc && !('start' in loc)) {
                 const line = this.view.state.doc.line(loc.line);
                 from = line.from + loc.column - 1;
                 to = Math.min(from + 1, line.to);
             } else {
-                from = Math.max(0, loc.start);
-                to = Math.min(loc.end, this.view.state.doc.length);
+                const sloc = loc as SourceLocation;
+                // If it's a SourceLocation, we might have offsets or we might need to calculate from lines
+                if (sloc.start.offset !== undefined) {
+                    from = sloc.start.offset;
+                    to = sloc.end.offset;
+                } else {
+                    // Fallback if formatting is different/partial
+                    // For now assuming SourceLocation always has offsets as per definition
+                    from = 0; to = 0; // Should not happen with current definition
+                }
             }
 
             if (from > to) [from, to] = [to, from];

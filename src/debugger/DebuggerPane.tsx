@@ -3,6 +3,8 @@ import styles from './DebuggerPane.module.css';
 import { For, Show, createSignal, onMount, onCleanup } from 'solid-js';
 import { PercValue } from '../ui/PercValue';
 import { VM } from '../vm';
+import { editorStore } from '../editor/EditorStore';
+
 
 interface DebuggerPaneProps {
     vm: VM;
@@ -177,8 +179,8 @@ export const DebuggerPane = (props: DebuggerPaneProps) => {
                                                         <DebugRow cells={[
                                                             <span
                                                                 class="debug-var-name"
-                                                                onMouseEnter={() => data.range && (window as any).editor?.highlightVariableDefinition(data.range[0], data.range[1])}
-                                                                onMouseLeave={() => (window as any).editor?.clearVariableDefinitionHighlight()}
+                                                                onMouseEnter={() => data.range && editorStore.highlightVariableDefinition(data.range[0], data.range[1])}
+                                                                onMouseLeave={() => editorStore.clearVariableDefinitionHighlight()}
                                                             >
                                                                 {name}
                                                             </span>,
