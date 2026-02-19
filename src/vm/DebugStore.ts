@@ -17,6 +17,7 @@ export interface DebugState {
     callStack: DebugFrame[];
     status: string;
     activeRange: [number, number] | null;
+    lastUpdatedVar: string | null;
 }
 
 export function createDebugStore() {
@@ -27,7 +28,8 @@ export function createDebugStore() {
         },
         callStack: [],
         status: 'Idle',
-        activeRange: null
+        activeRange: null,
+        lastUpdatedVar: null
     });
 
     return [state, setState] as const;

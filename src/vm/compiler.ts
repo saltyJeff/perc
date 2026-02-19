@@ -22,6 +22,7 @@ import {
     compileForInStatement,
     compileVarInit,
     compileVarChange,
+    compileVarRef,
     compileReturnStatement,
     compileDebuggerStatement,
     compileExpressionStatement
@@ -163,6 +164,10 @@ export class Compiler implements ICompiler {
 
             case "VarChange":
                 compileVarChange(this, cursor);
+                break;
+
+            case "VarRef":
+                compileVarRef(this, cursor);
                 break;
 
             case "ReturnStatement":

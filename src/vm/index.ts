@@ -56,9 +56,16 @@ export class VM {
         // Reset debug store
         this.setDebugStore({
             currentExpression: { value: null, type: null },
-            callStack: [],
+            callStack: [{
+                id: `frame-global-${Date.now()}`,
+                name: 'global',
+                args: [],
+                variables: {},
+                open: true
+            }],
             status: 'Idle',
-            activeRange: null
+            activeRange: null,
+            lastUpdatedVar: null
         });
 
         // Notify debugger of the initial global frame so it can be populated
@@ -251,10 +258,14 @@ export class VM {
                         this.push(b);
                         break;
                     case 'init':
-                        const init_val = this.pop();
+                        let init_val = this.pop();
                         if (init_val instanceof perc_err && !op.catch) {
                             this.return_error(init_val);
                             continue;
+                        }
+                        // Init creates a COPY by default for reference types (arrays/maps)
+                        if (init_val instanceof perc_list || init_val instanceof perc_map) {
+                            init_val = init_val.clone();
                         }
                         this.current_frame.scope.define(op.name, init_val, [op.src_start, op.src_end]);
                         if (this.in_debug_mode) {
@@ -279,6 +290,25 @@ export class VM {
                         if (this.in_debug_mode) {
                             this.events.on_var_update?.(op.name, s_val, [op.src_start, op.src_end]);
                             this.updateDebugStoreVariables(op.name, s_val, [op.src_start, op.src_end]);
+                        }
+                        break;
+                    case 'ref':
+                        const ref_val = this.pop();
+                        if (ref_val instanceof perc_err && !op.catch) {
+                            this.return_error(ref_val);
+                            continue;
+                        }
+                        // Ref MUST take a reference type (array or map)
+                        // User requirement: "it shall be an error to ref a non-reference type"
+                        if (!(ref_val instanceof perc_list || ref_val instanceof perc_map)) {
+                            this.return_error(new perc_err(`Cannot ref a non-reference type: ${ref_val.type}`, [op.src_start, op.src_end]));
+                            continue;
+                        }
+                        // No cloning here - we want the reference!
+                        this.current_frame.scope.define(op.name, ref_val, [op.src_start, op.src_end]);
+                        if (this.in_debug_mode) {
+                            this.events.on_var_update?.(op.name, this.current_frame.scope.lookup(op.name)!, [op.src_start, op.src_end]);
+                            this.updateDebugStoreVariables(op.name, this.current_frame.scope.lookup(op.name)!, [op.src_start, op.src_end]);
                         }
                         break;
                     case 'binary_op':
@@ -546,7 +576,10 @@ export class VM {
                         this.events.on_debugger?.();
                         this.events.on_state_dump?.();
                         this.setDebugStore("status", "Paused (Debugger)");
-                        yield; // Always pause on debugger
+
+                        // Force a yield to pause the VM loop
+                        yield;
+
                         last_src_start = op.src_start;
                         last_src_end = op.src_end;
                         break;

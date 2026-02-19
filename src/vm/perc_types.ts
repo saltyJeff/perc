@@ -91,6 +91,7 @@ export class perc_nil extends perc_type {
     to_string(): string { return "nil"; }
     is_truthy(): boolean { return false; }
     eq(other: perc_type): perc_bool { return new perc_bool(other instanceof perc_nil); }
+    clone(): perc_type { return this; }
 }
 
 export class perc_bool extends perc_type {
@@ -106,6 +107,7 @@ export class perc_bool extends perc_type {
     eq(other: perc_type): perc_bool {
         return new perc_bool(other instanceof perc_bool && this.value === other.value);
     }
+    clone(): perc_type { return this; }
 }
 
 export class perc_number extends perc_type {
@@ -201,6 +203,7 @@ export class perc_number extends perc_type {
         return new perc_bool(other instanceof perc_number && this.val >= other.val);
     }
 
+    clone(): perc_type { return this; }
     to_string(): string { return this.val.toString(); }
 }
 
@@ -242,14 +245,19 @@ export class perc_string extends perc_type {
             }
         };
     }
+    clone(): perc_type { return this; }
 }
+
+let nextAddress = 1;
 
 export class perc_list extends perc_type {
     elements: perc_type[];
+    pseudoAddress: number;
     get type() { return 'list'; }
     constructor(elements: perc_type[] = []) {
         super();
         this.elements = elements;
+        this.pseudoAddress = nextAddress++;
     }
     get(key: perc_type): perc_type {
         if (key instanceof perc_number) {
@@ -271,8 +279,8 @@ export class perc_list extends perc_type {
         return super.set(key, value);
     }
     clone(): perc_type {
-        // Shallow copy
-        return new perc_list([...this.elements]);
+        // Deep copy
+        return new perc_list(this.elements.map(e => e.clone()));
     }
     get_iterator(): perc_iterator | perc_err {
         let i = 0;
@@ -286,7 +294,7 @@ export class perc_list extends perc_type {
         };
     }
     to_string(): string {
-        return "[" + this.elements.map(e => e.to_string()).join(", ") + "]";
+        return `[list@${this.pseudoAddress}]`;
     }
 }
 
@@ -309,8 +317,8 @@ export class perc_tuple extends perc_type {
         return new perc_err("Tuples are immutable");
     }
     clone(): perc_type {
-        // Shallow copy - effectively creates a new tuple with same elements
-        return new perc_tuple([...this.elements]);
+        // Tuples are value types and immutable, so return self
+        return this;
     }
     get_iterator(): perc_iterator | perc_err {
         let i = 0;
@@ -330,10 +338,12 @@ export class perc_tuple extends perc_type {
 
 export class perc_map extends perc_type {
     data: Map<any, perc_type>;
+    pseudoAddress: number;
     get type() { return 'map'; }
     constructor() {
         super();
         this.data = new Map();
+        this.pseudoAddress = nextAddress++;
     }
     get(key: perc_type): perc_type {
         const k = key.to_string();
@@ -345,12 +355,14 @@ export class perc_map extends perc_type {
     }
     clone(): perc_type {
         const m = new perc_map();
-        // Shallow copy of map data
-        m.data = new Map(this.data);
+        // Deep copy of map data
+        for (const [k, v] of this.data.entries()) {
+            m.data.set(k, v.clone());
+        }
         return m;
     }
     to_string(): string {
-        return "{" + Array.from(this.data.entries()).map(([k, v]) => `${k}: ${v.to_string()}`).join(", ") + "}";
+        return `{map@${this.pseudoAddress}}`;
     }
 }
 

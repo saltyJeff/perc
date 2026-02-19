@@ -1,5 +1,5 @@
-import { createSignal, Show } from "solid-js";
-import { perc_type, perc_number } from "../vm/perc_types";
+import { createSignal, Show, For } from "solid-js";
+import { perc_type, perc_number, perc_list, perc_map } from "../vm/perc_types";
 import styles from "./PercValue.module.css";
 
 interface PercValueProps {
@@ -10,6 +10,7 @@ interface PercValueProps {
 export const PercValue = (props: PercValueProps) => {
     const [showTooltip, setShowTooltip] = createSignal(false);
     const [tooltipPos, setTooltipPos] = createSignal({ top: 0, left: 0 });
+    const [isExpanded, setIsExpanded] = createSignal(false);
 
     const handleMouseEnter = (e: MouseEvent) => {
         const value = props.value;
@@ -25,6 +26,11 @@ export const PercValue = (props: PercValueProps) => {
 
     const handleMouseLeave = () => {
         setShowTooltip(false);
+    };
+
+    const toggleExpand = (e: Event) => {
+        e.stopPropagation();
+        setIsExpanded(!isExpanded());
     };
 
     const isInteger = (type: string) => {
@@ -46,12 +52,105 @@ export const PercValue = (props: PercValueProps) => {
         };
     };
 
+    const renderMapEntry = (key: any, value: perc_type) => (
+        <div class={styles.nestedEntry}>
+            <span class={styles.key}>{key}: </span>
+            <PercValue value={value} />
+        </div>
+    );
+
+    const renderList = (val: perc_list) => {
+        const elements = val.elements;
+        if (!isExpanded()) {
+            return (
+                <span class={styles.collapsedObject}>
+                    <button
+                        class={styles.expandButton}
+                        onClick={toggleExpand}
+                        aria-expanded="false"
+                        aria-label="Expand list"
+                    >
+                        ▶
+                    </button>
+                    {val.to_string()} <span class={styles.preview}>Length: {elements.length}</span>
+                </span>
+            );
+        }
+
+        return (
+            <div class={styles.expandedObject}>
+                <div class={styles.objectHeader}>
+                    <button
+                        class={styles.expandButton}
+                        onClick={toggleExpand}
+                        aria-expanded="true"
+                        aria-label="Collapse list"
+                        style={{ transform: 'rotate(90deg)' }}
+                    >
+                        ▶
+                    </button>
+                    {val.to_string()}
+                </div>
+                <div class={styles.objectBody}>
+                    <For each={elements}>
+                        {(item, index) => renderMapEntry(index(), item)}
+                    </For>
+                </div>
+            </div>
+        );
+    };
+
+    const renderMap = (val: perc_map) => {
+        const entries = Array.from(val.data.entries());
+        if (!isExpanded()) {
+            return (
+                <span class={styles.collapsedObject}>
+                    <button
+                        class={styles.expandButton}
+                        onClick={toggleExpand}
+                        aria-expanded="false"
+                        aria-label="Expand map"
+                    >
+                        ▶
+                    </button>
+                    {val.to_string()} <span class={styles.preview}>Size: {entries.length}</span>
+                </span>
+            );
+        }
+
+        return (
+            <div class={styles.expandedObject}>
+                <div class={styles.objectHeader}>
+                    <button
+                        class={styles.expandButton}
+                        onClick={toggleExpand}
+                        aria-expanded="true"
+                        aria-label="Collapse map"
+                        style={{ transform: 'rotate(90deg)' }}
+                    >
+                        ▶
+                    </button>
+                    {val.to_string()}
+                </div>
+                <div class={styles.objectBody}>
+                    <For each={entries}>
+                        {([key, value]) => renderMapEntry(key, value)}
+                    </For>
+                </div>
+            </div>
+        );
+    };
+
     const renderContent = () => {
         const value = props.value;
         if (value instanceof perc_number) {
-            return (
-                <span class="val">{value.to_string()}</span>
-            );
+            return <span class="val">{value.to_string()}</span>;
+        }
+        if (value instanceof perc_list) {
+            return renderList(value);
+        }
+        if (value instanceof perc_map) {
+            return renderMap(value);
         }
         if (value.type === 'string') {
             return <span>"{value.to_string()}"</span>;

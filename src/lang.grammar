@@ -20,8 +20,10 @@
 
 Statement {
   FunctionDeclaration |
+
   VarInit |
   VarChange |
+  VarRef |
   ReturnStatement |
   BreakStatement |
   ContinueStatement |
@@ -51,6 +53,10 @@ VarInit {
 
 VarChange { 
   kw<"change"> (MemberExpression | Identifier) (AssignOp | CatchAssignOp) Expression
+}
+
+VarRef {
+  kw<"ref"> Identifier (AssignOp | CatchAssignOp) Expression
 }
 
 IfStatement { 
@@ -121,7 +127,8 @@ PrimaryExpression {
   Literal |
   ParenthesizedExpression |
   FunctionLiteral |
-  InstantiationExpression
+  InstantiationExpression |
+  TupleLiteral
 }
 
 ParenthesizedExpression { "(" Expression ")" }
@@ -131,7 +138,7 @@ FunctionLiteral {
 }
 
 InstantiationExpression { 
-  kw<"new"> (ArrayLiteral | MapLiteral | TupleLiteral) 
+  kw<"new"> (ArrayLiteral | MapLiteral) 
 }
 
 ArrayLiteral { 

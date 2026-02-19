@@ -10,7 +10,7 @@ export interface IConsole {
     clear: () => void;
 }
 
-export const createConsoleBuiltins = (appConsole: IConsole): Record<string, BuiltinFunc> => {
+export const createConsoleBuiltins = (appConsole: IConsole, onRequestInput: (prompt: string) => void): Record<string, BuiltinFunc> => {
     return {
         'print': (...args: perc_type[]) => {
             const msg = args.map(a => (a as any).to_string()).join(' ');
@@ -65,11 +65,12 @@ export const createConsoleBuiltins = (appConsole: IConsole): Record<string, Buil
         // this.events.on_input_request?.(p); this.is_waiting_for_input = true;
 
         // Use a callback for the input signal?
-        'input': (prompt_str: perc_type) => {
-            // This needs to trigger VM pause.
-            // We can't do that easily from here without VM reference.
-            // Maybe we should pass a callback `requestInput(prompt: string)` to this factory.
-            throw new Error("input() builtin requires special handling and should be registered securely or via callback");
+        // onInput callback to notify the VM/UI
+        'input': (prompt: perc_type) => {
+            const promptStr = prompt instanceof perc_string ? prompt.value : "";
+            onRequestInput(promptStr);
+            // Return nil as a placeholder. VM will pop this and replace with actual input when resumed.
+            return new perc_nil();
         }
     };
 };

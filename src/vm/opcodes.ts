@@ -40,6 +40,12 @@ export interface store_op extends base_op {
     catch: boolean;
 }
 
+export interface ref_op extends base_op {
+    type: 'ref';
+    name: string;
+    catch: boolean;
+}
+
 export interface binary_op extends base_op {
     type: 'binary_op';
     op: string; // '+', '-', '*', '/', '%', '==', '!=', '<', '<=', '>', '>=', '&&', '||', etc.
@@ -156,6 +162,7 @@ export type opcode =
     | init_op
     | load_op
     | store_op
+    | ref_op
     | binary_op
     | unary_op
     | jump_op

@@ -78,7 +78,7 @@ export function compileMemberExpression(compiler: ICompiler, cursor: TreeCursor)
 
 export function compileInstantiationExpression(compiler: ICompiler, cursor: TreeCursor) {
     cursor.firstChild(); // new
-    cursor.nextSibling(); // Literal
+    cursor.nextSibling(); // Literal (ArrayLiteral | MapLiteral)
     compiler.visit(cursor);
     cursor.parent();
 }

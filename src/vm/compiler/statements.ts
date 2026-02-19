@@ -113,6 +113,22 @@ export function compileWhileStatement(compiler: ICompiler, cursor: TreeCursor) {
     cursor.parent();
 }
 
+export function compileVarRef(compiler: ICompiler, cursor: TreeCursor) {
+    const loc = { start: cursor.from, end: cursor.to };
+    cursor.firstChild(); // kw<"ref">
+    cursor.nextSibling(); // Identifier
+    const varName = compiler.source.slice(cursor.from, cursor.to);
+    cursor.nextSibling(); // Op
+    const isCatchRef = (cursor.name as string) === "CatchAssignOp";
+    cursor.nextSibling(); // Expression
+    compiler.visit(cursor);
+
+    compiler.declare_var(varName, loc);
+    compiler.emit({ type: 'ref', name: varName, catch: isCatchRef }, loc);
+
+    cursor.parent();
+}
+
 export function compileForInStatement(compiler: ICompiler, cursor: TreeCursor) {
     const loc = { start: cursor.from, end: cursor.to };
     const end = cursor.to;

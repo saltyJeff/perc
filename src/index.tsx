@@ -17,6 +17,7 @@ import { createGuiBuiltins } from './gui_window/builtins';
 import { App } from './ui/App';
 import { createConsoleStore } from './console/ConsoleStore';
 import { editorStore } from './editor/EditorStore';
+import { appStore } from './ui/AppStore';
 
 console.log('PerC IDE initializing...');
 
@@ -37,9 +38,9 @@ const initApp = () => {
     const BATCH_SIZE = 100;
 
     const updateToolbarState = (state: 'idle' | 'running' | 'paused' | 'input') => {
-        let menuState: string = state;
+        let menuState: any = state;
         if (state === 'paused') menuState = 'debugging';
-        if ((window as any).setMenuState) (window as any).setMenuState(menuState);
+        appStore.setVM(menuState);
     };
 
     const stopVM = () => {
@@ -65,6 +66,15 @@ const initApp = () => {
             executionInterval = setInterval(() => {
                 for (let i = 0; i < BATCH_SIZE; i++) {
                     const result = currentRunner!.next();
+                    // Check if we hit a breakpoint/debugger first
+                    if (vm.in_debug_mode && isPaused) {
+                        updateToolbarState('paused'); // Ensure UI reflects pause
+                        clearInterval(executionInterval);
+                        executionInterval = null;
+                        resolve();
+                        return;
+                    }
+
                     if (result.done) {
                         consoleActions.addEntry("Execution stopped.", 'status');
                         stopVM();
@@ -212,8 +222,13 @@ const initApp = () => {
                         stopVM();
                     },
                     on_input_request: (prompt) => {
+                        // The VM has already set is_waiting_for_input = true
+                        isWaitingForInput = true;
                         consoleActions.addEntry(prompt || "Input required:", 'log');
-                        consoleActions.addEntry("Type input below and press Enter...", 'log');
+                        consoleActions.addEntry("Type input below and press Enter...", 'status');
+                        // We also need to pause/halt the execution loop, which happens in runVM due to wait flag
+                        // But runVM loop checks `vm.is_waiting_for_input` which IS true now.
+                        updateToolbarState('input');
                     },
                     on_node_eval: (range) => {
                         editorStore.highlightRange(range[0], range[1]);
@@ -221,7 +236,11 @@ const initApp = () => {
                     on_debugger: () => {
                         isPaused = true;
                         updateToolbarState('paused');
-                        if ((window as any).setPaneState) (window as any).setPaneState('debugger', 'restore');
+
+                        // Restore debugger pane if it's too small
+                        if (appStore.layout.dcSplit < 0.1) {
+                            appStore.updateSize('dc', 0.5);
+                        }
                         editorStore.enter_debug_mode();
                     },
                     on_state_dump: () => {
@@ -241,7 +260,32 @@ const initApp = () => {
                     setTextColor: (color: string) => consoleActions.setTextColor(color),
                     clear: () => consoleActions.clear()
                 };
-                vm.register_builtins(createConsoleBuiltins(legacyConsole as any));
+                vm.register_builtins(createConsoleBuiltins(legacyConsole as any, (prompt) => {
+                    // Callback from 'input' builtin
+                    vm.is_waiting_for_input = true;
+                    // We can manually trigger the event handler if we want, or just let runVM loop catch it
+                    // The VM loop checks `vm.is_waiting_for_input` *after* instruction execution?
+                    // No, the VM `input` was... wait. 
+                    // The builtin itself just returns. The VM loop continues.
+                    // The builtin needs to set the flag on the VM.
+                    // Since we don't have VM in `createConsoleBuiltins`, we do it here.
+                    // BUT `input` builtin returns `nil` (placeholder).
+                    // We need to tell the VM to pause.
+                    // In `vm.run()`, we check `should_yield`.
+                    // If we set `is_waiting_for_input` on VM, does `run()` yield?
+                    // `vm.run()` does NOT yield on input flag automatically in the current implementation?
+                    // Let's check `vm.ts`.
+                    // `vm.ts` doesn't seem to check `is_waiting_for_input` in `should_yield` or main loop!
+                    // We must force the VM to pause or yielded.
+                    // Actually `runVM` checks `vm.is_waiting_for_input`.
+                    // So if we set it here, `runVM` will see it in the next iteration.
+                    // `runVM` batch loop:
+                    // for (...) { next(); if (vm.is_waiting_for_input) ... }
+                    // So yes, setting it here is enough.
+                    vm.is_waiting_for_input = true;
+                    consoleActions.addEntry(prompt || "Input required:", 'status');
+                    updateToolbarState('input');
+                }));
                 vm.register_builtins(createGuiBuiltins(gui));
 
                 editorStore.setVariableProvider(() => {

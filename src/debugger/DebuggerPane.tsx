@@ -4,6 +4,7 @@ import { For, Show, createSignal, onMount, onCleanup } from 'solid-js';
 import { PercValue } from '../ui/PercValue';
 import { VM } from '../vm';
 import { editorStore } from '../editor/EditorStore';
+import "./DebuggerPane.css";
 
 
 interface DebuggerPaneProps {
@@ -102,9 +103,10 @@ export const DebuggerPane = (props: DebuggerPaneProps) => {
         );
     };
 
-    const DebugRow = (rowProps: { cells: any[], cols: number }) => {
+    // Inside DebugRow
+    const DebugRow = (rowProps: { cells: any[], cols: number, varName?: string }) => {
         return (
-            <tr>
+            <tr class={props.vm.debugStore.lastUpdatedVar === rowProps.varName ? 'flash-update' : ''}>
                 <For each={rowProps.cells}>
                     {(cell, i) => (
                         <td class={i() === 0 ? 'col-name' : (i() === 1 ? 'col-value' : 'col-type')}>
@@ -176,17 +178,19 @@ export const DebuggerPane = (props: DebuggerPaneProps) => {
                                             <DebugTable headers={['Name', 'Value', 'Type']} cols={3}>
                                                 <For each={Object.entries(frame.variables)}>
                                                     {([name, data]) => (
-                                                        <DebugRow cells={[
-                                                            <span
-                                                                class="debug-var-name"
-                                                                onMouseEnter={() => data.range && editorStore.highlightVariableDefinition(data.range[0], data.range[1])}
-                                                                onMouseLeave={() => editorStore.clearVariableDefinitionHighlight()}
-                                                            >
-                                                                {name}
-                                                            </span>,
-                                                            <PercValue value={data.value} isRow />,
-                                                            data.value.type
-                                                        ]} cols={3} />
+                                                        <DebugRow
+                                                            varName={name}
+                                                            cells={[
+                                                                <span
+                                                                    class="debug-var-name"
+                                                                    onMouseEnter={() => data.range && editorStore.highlightVariableDefinition(data.range[0], data.range[1])}
+                                                                    onMouseLeave={() => editorStore.clearVariableDefinitionHighlight()}
+                                                                >
+                                                                    {name}
+                                                                </span>,
+                                                                <PercValue value={data.value} isRow />,
+                                                                data.value.type
+                                                            ]} cols={3} />
                                                     )}
                                                 </For>
                                             </DebugTable>
