@@ -6,6 +6,7 @@ export default {
         lezer(),
         solidPlugin(),
     ],
+    base: '/perc/',
     build: {
         target: "es2020",
         rollupOptions: {
