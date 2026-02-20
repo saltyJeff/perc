@@ -48,6 +48,7 @@ const initApp = () => {
         appStore.setVM(menuState);
     };
 
+
     const stopVM = () => {
         isPaused = false;
         isWaitingForInput = false;
@@ -57,9 +58,10 @@ const initApp = () => {
         editorStore.enter_idle_mode();
         updateToolbarState('idle');
 
-        vm.reset_state(); // This also resets debugStore in the VM
+        // vm.reset_state(); // This also resets debugStore in the VM
         gui.resetIntentional();
     };
+
 
     const runVM = async () => {
         if (!currentRunner) return;

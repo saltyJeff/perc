@@ -49,12 +49,19 @@ window.addEventListener("message", (event) => {
         const root = buildRenderTree(event.data.batch);
         setGuiState("root", reconcile(root));
     } else if (event.data && event.data.type === 'resize_window') {
-        setGuiState("width", event.data.width);
-        setGuiState("height", event.data.height);
+        const { width, height } = event.data;
+        setGuiState("width", width);
+        setGuiState("height", height);
+
+        // Check if window is already the correct size (within a small margin)
+        // height + 40 accounts for the footer text area
+        if (Math.abs(window.innerWidth - width) < 2 && Math.abs(window.innerHeight - (height + 40)) < 2) {
+            return;
+        }
 
         const chromeWidth = window.outerWidth - window.innerWidth;
         const chromeHeight = window.outerHeight - window.innerHeight;
-        window.resizeTo(event.data.width + chromeWidth, event.data.height + chromeHeight + 40);
+        window.resizeTo(width + chromeWidth, height + chromeHeight + 40);
     }
 });
 

@@ -9,6 +9,8 @@ export class GUIManager {
     private clickBuffer: Set<string> = new Set();
 
     private hasOpenedIntentional: boolean = false;
+    private lastWidth: number = 0;
+    private lastHeight: number = 0;
 
     constructor() {
         window.addEventListener('message', (event) => {
@@ -37,7 +39,11 @@ export class GUIManager {
     openWindow(width: number = 640, height: number = 480): boolean {
         if (this.subwindow && !this.subwindow.closed) {
             this.subwindow.focus();
-            this.subwindow.postMessage({ type: 'resize_window', width, height }, '*');
+            if (width !== this.lastWidth || height !== this.lastHeight) {
+                this.subwindow.postMessage({ type: 'resize_window', width, height }, '*');
+                this.lastWidth = width;
+                this.lastHeight = height;
+            }
             return true;
         }
 
@@ -47,6 +53,8 @@ export class GUIManager {
         }
 
         this.subwindow = window.open('gui.html', 'PerC_GUI', `width=${width},height=${height}`);
+        this.lastWidth = width;
+        this.lastHeight = height;
 
         if (this.subwindow) {
             this.hasOpenedIntentional = true;
