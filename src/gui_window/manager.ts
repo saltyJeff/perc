@@ -1,4 +1,4 @@
-import type { Group, GUICommand } from "./gui_cmds";
+import type { GUICommand } from "./gui_cmds";
 
 export class GUIManager {
     private subwindow: Window | null = null;
