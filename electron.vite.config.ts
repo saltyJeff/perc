@@ -1,6 +1,7 @@
 import { defineConfig } from 'electron-vite';
 import { resolve } from 'path';
 import solidPlugin from 'vite-plugin-solid';
+import { lezer } from "@lezer/generator/rollup";
 
 export default defineConfig({
     main: {
@@ -44,6 +45,6 @@ export default defineConfig({
                 }
             }
         },
-        plugins: [solidPlugin()]
+        plugins: [lezer(), solidPlugin()]
     }
 });

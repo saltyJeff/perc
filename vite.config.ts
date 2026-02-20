@@ -6,7 +6,7 @@ export default {
         lezer(),
         solidPlugin(),
     ],
-    base: '/perc/',
+    base: process.env.BUILD_TARGET === 'github-pages' ? '/perc/' : './',
     build: {
         target: "es2020",
         rollupOptions: {
