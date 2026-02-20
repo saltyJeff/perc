@@ -12,13 +12,32 @@
     "electron:dev": "electron-vite dev",
     "electron:build": "electron-vite build",
     "electron:preview": "electron-vite preview",
-    "tauri": "tauri"
+    "electron:make": "electron-vite build && electron-builder"
+  },
+  "build": {
+    "appId": "io.github.saltyJeff.perc",
+    "productName": "perc",
+    "directories": {
+      "output": "dist/electron"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
   },
   "devDependencies": {
     "@lezer/generator": "^1.8.0",
-    "@tauri-apps/api": "^2.10.1",
-    "@tauri-apps/cli": "^2.10.0",
     "electron": "^40.6.0",
+    "electron-builder": "^26.8.1",
     "electron-updater": "^6.8.3",
     "electron-vite": "^5.0.0",
     "jsdom": "^28.1.0",

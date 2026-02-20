@@ -18,7 +18,7 @@ export const [guiState, setGuiState] = createStore<{
     showCoords: false
 });
 
-export function syncInput(extra?: any) {
+export async function syncInput(extra?: any) {
     if (window.opener) {
         if (extra) {
             window.opener.postMessage(extra, "*");

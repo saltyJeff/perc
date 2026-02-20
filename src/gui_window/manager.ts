@@ -19,13 +19,14 @@ export class GUIManager {
             }
         });
 
+
         // Cleanup: close GUI window when main window closes/refreshes
         window.addEventListener('beforeunload', () => {
             this.cleanup();
         });
     }
 
-    openWindow(width: number = 640, height: number = 480): boolean {
+    async openWindow(width: number = 640, height: number = 480): Promise<boolean> {
         if (this.subwindow && !this.subwindow.closed) {
             this.subwindow.focus();
             this.subwindow.postMessage({ type: 'resize_window', width, height }, '*');

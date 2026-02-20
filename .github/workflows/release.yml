@@ -22,17 +22,26 @@ jobs:
           cache: 'npm'
       - name: Install dependencies
         run: npm ci
-      - name: Build
-        run: npm run electron:build
-      - name: Zip build
-        shell: bash
+      - name: Build and Package
+        # Note: electron-builder will detect the OS and build the appropriate installer
         run: |
-          mkdir -p release
-          zip -r release/perc-electron-${{ matrix.os }}.zip out/
+          if [ "${{ matrix.os }}" == "macos-latest" ]; then
+            npm run electron:make -- --mac
+          elif [ "${{ matrix.os }}" == "windows-latest" ]; then
+            npm run electron:make -- --win
+          else
+            npm run electron:make -- --linux
+          fi
+        shell: bash
       - name: Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: release/perc-electron-${{ matrix.os }}.zip
+          files: |
+            dist/electron/*.exe
+            dist/electron/*.dmg
+            dist/electron/*.AppImage
+            dist/electron/*.deb
+            dist/electron/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
