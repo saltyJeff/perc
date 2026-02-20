@@ -36,7 +36,7 @@ PerC supports fixed-width integers to demonstrate overflow *safely*.
 
 ```perc
 // 8-bit integer overflow demo
-init tiny = i8(0)
+init tiny = u8(0)
 while (tiny < 300) then {
     change tiny = tiny + 50
     print(tiny) // Watch it wrap around at 255!
