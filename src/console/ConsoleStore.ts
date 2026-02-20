@@ -81,6 +81,15 @@ function createConsoleStore() {
                 return { historyIndex: idx, tempInput: temp };
             });
             return result;
+        },
+        reset: () => {
+            setState({
+                entries: [],
+                history: [],
+                historyIndex: -1,
+                tempInput: "",
+                textColor: 'var(--fg-color)'
+            });
         }
     };
 
