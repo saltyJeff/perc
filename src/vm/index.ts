@@ -79,12 +79,6 @@ export class VM {
             const result = compiler.compile(source, tree);
 
             if (result.errors.length > 0) {
-                // Report all errors? For now just throw the first one to stop execution
-                // Or better, emit them via loop?
-                // The `throw` below expects a single error.
-                // We should probably change execute behavior to NOT throw but return or emit events.
-                // But the UI expects `execute` to throw on error?
-                // existing code: console.error(e.message, loc); throw e;
                 const firstErr = result.errors[0];
                 const loc: [number, number] = [firstErr.location.start.offset, firstErr.location.end.offset];
                 console.error(firstErr.message, loc);
@@ -107,26 +101,6 @@ export class VM {
             // Collect existing variables to pass to compiler
             const existingVars: string[] = [];
             if (this.current_frame && this.current_frame.scope) {
-                // We want all variables reachable from current scope?
-                // Or just the top-level globals if we are in REPL?
-                // REPL usually runs in global scope.
-                // Let's get all variables from the global scope.
-                const globalIdx = this.call_stack.length > 0 ? 0 : -1; // Wait, call stack might be empty.
-                // Logic: get_global_scope returns the bottom-most scope.
-                // But we might be in a function?
-                // REPL execution is top-level.
-                // Just use current_frame.scope identifiers.
-                // But we need to walk up the scope chain?
-                // Scope doesn't expose keys easily if we don't track them.
-                // Scope has `definitions` which is Map<string, ...>.
-                // `values` is Map<string, perc_type>.
-                // `scope.ts` defines `values`.
-                // Let's assume Scope has `values` or `definitions`.
-                // Checking `src/vm/scope.ts` would be good, but `index.ts` uses `this.current_frame.scope.lookup`.
-                // `get_scope_variables` uses `s.values.entries()`.
-                // So `values` exists.
-
-                // We need to gather all names from the scope chain.
                 let s: Scope | null = this.current_frame.scope;
                 while (s) {
                     for (const k of s.values.keys()) {

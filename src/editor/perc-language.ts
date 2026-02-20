@@ -11,7 +11,7 @@ export const percLanguage = LRLanguage.define({
                 Block: delimitedIndent({ closing: "}" }),
                 MapLiteral: delimitedIndent({ closing: "}" }),
                 ArrayLiteral: delimitedIndent({ closing: "]" }),
-                TupleLiteral: delimitedIndent({ closing: "|)" }), // Lezer might struggle with 2-char token closing?
+                TupleLiteral: delimitedIndent({ closing: "|)" }),
                 // delimitedIndent expects a string for close token.
             }),
             foldNodeProp.add({
@@ -36,8 +36,7 @@ export function percAutocomplete(builtins: string[] = [], variableProvider: () =
         if (/^\d/.test(word.text)) return null;
 
         const generatedVars = new Set<string>();
-        // Using regex for vars is still simpler than traversing tree for now, 
-        // though traversing tree would be more accurate for scoping.
+        // Simple variable detection for completion
         const content = context.state.doc.toString();
         const initRegex = /\binit\s+([a-zA-Z_]\w*)/g;
         let match;

@@ -242,28 +242,24 @@ while(true) then {
         let from, to;
         try {
             if ('line' in loc && !('start' in loc)) {
-                // { line, column }
                 const line = this.view.state.doc.line(loc.line);
                 from = line.from + loc.column - 1;
                 to = Math.min(from + 1, line.to);
-            } else if ('start' in loc && typeof loc.start === 'number') {
-                // { start: number, end: number }
-                const range = loc as { start: number, end: number };
-                from = range.start;
-                to = range.end;
             } else {
                 const sloc = loc as SourceLocation;
-                // If it's a SourceLocation, we might have offsets or we might need to calculate from lines
-                if (sloc.start && sloc.start.offset !== undefined) {
+                if (sloc.start && typeof sloc.start === 'object' && 'offset' in sloc.start) {
                     from = sloc.start.offset;
                     to = sloc.end.offset;
+                } else if ('start' in loc && typeof (loc as any).start === 'number') {
+                    from = (loc as any).start;
+                    to = (loc as any).end;
                 } else {
-                    // Fallback if formatting is different/partial
-                    // For now assuming SourceLocation always has offsets as per definition
-                    from = 0; to = 0; // Should not happen with current definition
+                    from = 0;
+                    to = 0;
                 }
             }
 
+            if (from === undefined || to === undefined) return;
             if (from > to) [from, to] = [to, from];
 
             const docLength = this.view.state.doc.length;
@@ -287,7 +283,7 @@ while(true) then {
                     EditorView.scrollIntoView(from, { y: 'center' })
                 ]
             });
-        } catch (e) {
+        } catch (e: any) {
             console.error("Failed to highlight:", e, loc);
         }
     }
