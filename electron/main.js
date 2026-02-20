@@ -6,6 +6,7 @@ function createWindow() {
         width: 1200,
         height: 800,
         icon: path.join(__dirname, '../public/icons/icon.ico'),
+        autoHideMenuBar: true, // Hide the menu bar (File, Edit, etc.)
         webPreferences: {
             preload: path.join(__dirname, '../preload/index.js'),
         },

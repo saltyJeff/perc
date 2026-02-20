@@ -35,7 +35,9 @@ export const MenuBar = (props: MenuBarProps) => {
     return (
         <header class={`${styles.menuBar} menu-bar`}>
             <nav class={styles.menuBar} aria-label="Main Toolbar">
-                <div class={styles.logo} aria-hidden="true">PerC IDE</div>
+                <div class={styles.logo} aria-hidden="true">
+                    PerC IDE <span class={styles.version}>v{__APP_VERSION__}</span>
+                </div>
 
                 <div class={styles.menuActions}>
                     <Switch>
