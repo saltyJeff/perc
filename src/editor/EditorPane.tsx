@@ -30,7 +30,12 @@ export const EditorPane = (props: EditorPaneProps) => {
         >
             <div class={styles.header}>
                 <div class={styles.titleArea}>
-                    <h2 id="editor-title" class={styles.title}>Source Code</h2>
+                    <h2
+                        id="editor-title"
+                        class={`${styles.title} ${props.orientation === 'vertical' ? 'vertical-header-text' : ''}`}
+                    >
+                        Source Code
+                    </h2>
                 </div>
                 <div class={styles.controls}>
                     <ZoomControl onZoom={props.onZoom} minZoomPct={25} maxZoomPct={500} />
@@ -39,6 +44,6 @@ export const EditorPane = (props: EditorPaneProps) => {
             <div class={styles.content}>
                 <div id="editor" class="pane-content" role="textbox" aria-multiline="true" aria-label="Source Code Editor"></div>
             </div>
-        </section>
+        </section >
     );
 };

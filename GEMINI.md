@@ -23,10 +23,10 @@
 
 
 ## Architecture
-- Lezer is the parser generator. see `src/lang.grammar` for reference
+- Lezer is the parser generator. see [lang.grammar](src/lang.grammar) for reference
 - vite is the build tool. Run `npm run dev` for dev server, `npm run build` for build.
   - the build is much stricter than the dev server, so be sure to run `npm run build` before submitting code.
-- currently we use JQuery, but we're trying to migrate to solidjs
+- The project has migrated from JQuery to **SolidJS** for the UI layer.
 - we are targeting browsers less than 5 years old, so modern features are available. 
 
 ## GUI
@@ -53,7 +53,7 @@
     - text wrapping
 
 ### Accessiblity
-The PerC IDE is designed to meet WCAG 2.1 Level AA standards to ensure inclusivity for all students:
+The PerC IDE has the goal to meet WCAG 2.1 Level AA standards to ensure inclusivity for all students:
 - **Semantic HTML**: Proper use of `<header>`, `<nav>`, `<main>`, `<section>`, and `<h2>` for clear document structure.
 - **Skip to Editor**: Focusable link at the top of the page to bypass navigation for keyboard users.
 - **Keyboard Navigation**:
@@ -67,6 +67,7 @@ The PerC IDE is designed to meet WCAG 2.1 Level AA standards to ensure inclusivi
 
 ## VM
 The PerC VM is a stack based VM written in typescript.
+- VM Entry Point: [vm/index.ts](src/vm/index.ts)
 
 While it executes the code, it emits events that are consumed by the debugger. These events include:
 - new frame pushed / popped
@@ -78,11 +79,14 @@ While the VM evaluates, it should mark the code editor read only. Then, it shoul
 
 ## Interpreter architecture
 The interpreter is implemented as a stack-based Virtual Machine using a generator for its main execution loop to facilitate stepping and debugging.
+- Compiler: [vm/compiler.ts](src/vm/compiler.ts)
 
 ### Opcodes
+See [opcodes.ts](src/vm/opcodes.ts) for the full list of supported opcodes.
+
 - **Stack**: `push`, `pop`, `dup`, `swap`.
 - **Variables**: `init`, `load`, `store` (with semantic checks for `init` vs `change`).
-  > **Note**: This language uses `init` for declaration and `change` for mutation. `var` and `let` are **NOT*- supported.
+  > **Note**: This language uses `init` for declaration and `change` for mutation. `var` and `let` are **NOT** supported.
 - **Control Flow**: `jump`, `jump_if_false`, `jump_if_true`.
 - **Loops**: `get_iter`, `iter_next` (for `for-in` support).
 - **Functions**: `call`, `ret`, `make_closure`.
