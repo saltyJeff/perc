@@ -176,3 +176,24 @@ Received: "<native method push>"
        [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
 [33mTest removed...[39m[2m [ src/vm/builtins_methods.test.ts ]
 [22m
+[1m[35m
+Restarting due to config changes...[39m[22m
+
+[1m[44m DEV [49m[22m [34mv4.0.18 [39m[90mE:/perc[39m
+
+[31mNo test files found. You can change the file name pattern by pressing "p"
+[39m
+filter: src/vm/builtins_methods.test.ts
+include: **/*.{test,spec}.?(c|m)[jt]s?(x)
+exclude:  **/node_modules/**, **/.git/**
+
+file:///E:/perc/node_modules/vitest/dist/chunks/cli-api.B7PN_QUv.js:12497
+				if (!this.config.watch || !(this.config.changed || this.config.related?.length)) throw new FilesNotFoundError(this.mode);
+				                                                                                       ^
+
+FilesNotFoundError: No test files found
+    at file:///E:/perc/node_modules/vitest/dist/chunks/cli-api.B7PN_QUv.js:12497:92 {
+  code: 'VITEST_FILES_NOT_FOUND'
+}
+
+Node.js v25.2.1

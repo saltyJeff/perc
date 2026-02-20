@@ -3,16 +3,24 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "main": "out/main/index.js",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview",
-    "test": "vitest run"
+    "preview": "vite build && vite preview",
+    "test": "vitest run",
+    "electron:dev": "electron-vite dev",
+    "electron:build": "electron-vite build",
+    "electron:preview": "electron-vite preview",
+    "tauri": "tauri"
   },
   "devDependencies": {
     "@lezer/generator": "^1.8.0",
-    "@types/jquery": "^3.5.33",
-    "jsdom": "^28.1.0",
+    "@tauri-apps/api": "^2.10.1",
+    "@tauri-apps/cli": "^2.10.0",
+    "electron": "^40.6.0",
+    "electron-updater": "^6.8.3",
+    "electron-vite": "^5.0.0",
     "typescript": "~5.9.3",
     "vite": "^7.3.1",
     "vite-plugin-solid": "^2.11.10",

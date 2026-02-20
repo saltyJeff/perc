@@ -1,4 +1,4 @@
-# PerC: The Learning Language for AP CS Principles
+# <img src="public/perc.png" width="48" height="48" alt="PerC Logo"> PerC: The Learning Language for AP CS Principles
 
 PerC (pedagogically reduced computer language) is a programming language and integrated development environment (IDE) specifically designed for students learning computer science through the AP CS Principles framework. It prioritizes clarity, immediate feedback, and accessibility.
 
