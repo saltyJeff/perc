@@ -26,8 +26,13 @@ const initApp = () => {
     document.body.classList.add('dark-theme');
 
     const vm = new VM();
-    // const [consoleState, consoleActions] = createConsoleStore(); // Moved to singleton
     const gui = new GUIManager();
+    gui.setOnClose(() => {
+        if (currentRunner) {
+            consoleStore.actions.addEntry("GUI Window closed, stopping execution.", 'error');
+            stopVM();
+        }
+    });
 
     // VM state
 
@@ -53,6 +58,7 @@ const initApp = () => {
         updateToolbarState('idle');
 
         vm.reset_state(); // This also resets debugStore in the VM
+        gui.resetIntentional();
     };
 
     const runVM = async () => {

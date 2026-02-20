@@ -1,9 +1,10 @@
-import type { Group } from "./gui_cmds";
+import type { Group, GUICommand } from "./gui_cmds";
 
 export class GUIManager {
     private subwindow: Window | null = null;
     private inputState: Record<string, any> = {};
     private hasShownPopupWarning: boolean = false;
+    private onClose: (() => void) | null = null;
 
     private clickBuffer: Set<string> = new Set();
 
@@ -16,6 +17,9 @@ export class GUIManager {
                 this.inputState = event.data.state;
             } else if (event.data && event.data.type === 'gui_event') {
                 this.clickBuffer.add(event.data.id);
+            } else if (event.data && event.data.type === 'gui_closed') {
+                this.cleanup();
+                if (this.onClose) this.onClose();
             }
         });
 
@@ -26,7 +30,11 @@ export class GUIManager {
         });
     }
 
-    async openWindow(width: number = 640, height: number = 480): Promise<boolean> {
+    setOnClose(cb: () => void) {
+        this.onClose = cb;
+    }
+
+    openWindow(width: number = 640, height: number = 480): boolean {
         if (this.subwindow && !this.subwindow.closed) {
             this.subwindow.focus();
             this.subwindow.postMessage({ type: 'resize_window', width, height }, '*');
@@ -60,13 +68,14 @@ export class GUIManager {
     resetIntentional() {
         this.hasOpenedIntentional = false;
         this.clickBuffer.clear();
+        this.inputState = {};
     }
 
     private lastUpdate = 0;
-    private pendingUpdate: Group | null = null;
+    private pendingUpdate: GUICommand[] | null = null;
     private updateTimer: any = null;
 
-    sendWindowUpdate(group: Group) {
+    sendWindowUpdate(batch: GUICommand[]) {
         if (!this.subwindow || this.subwindow.closed) return;
 
         const now = Date.now();
@@ -75,11 +84,11 @@ export class GUIManager {
         const INTERVAL = 1000 / TARGET_FPS;
 
         if (timeSinceLast >= INTERVAL) {
-            this.subwindow.postMessage({ type: 'render_batch', batch: group }, '*');
+            this.subwindow.postMessage({ type: 'render_batch', batch }, '*');
             this.lastUpdate = now;
             this.pendingUpdate = null;
         } else {
-            this.pendingUpdate = group;
+            this.pendingUpdate = batch;
             if (!this.updateTimer) {
                 this.updateTimer = setTimeout(() => {
                     if (this.pendingUpdate) {

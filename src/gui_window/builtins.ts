@@ -64,7 +64,7 @@ export const createGuiBuiltins = (gui: GUIManager): Record<string, BuiltinFunc> 
         },
 
         'end_window': () => {
-            gui.sendWindowUpdate(commandList as any); // Cast because manager expects Group, but we send list now
+            gui.sendWindowUpdate(commandList);
             return new perc_nil();
         },
 

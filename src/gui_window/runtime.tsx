@@ -38,6 +38,12 @@ window.addEventListener("mouseup", () => {
     syncInput();
 });
 
+window.addEventListener('beforeunload', () => {
+    if (window.opener) {
+        window.opener.postMessage({ type: 'gui_closed' }, '*');
+    }
+});
+
 window.addEventListener("message", (event) => {
     if (event.data && event.data.type === 'render_batch') {
         const root = buildRenderTree(event.data.batch);
