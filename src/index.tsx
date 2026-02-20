@@ -264,7 +264,7 @@ const initApp = () => {
                     on_input_request: (prompt) => {
                         // The VM has already set is_waiting_for_input = true
                         isWaitingForInput = true;
-                        consoleStore.actions.addEntry(prompt || "Input required:", 'log');
+                        consoleStore.actions.addEntry(`Input > ${prompt || ""}`, 'log');
                         consoleStore.actions.addEntry("Type input below and press Enter...", 'status');
                         // We also need to pause/halt the execution loop, which happens in runVM due to wait flag
                         // But runVM loop checks `vm.is_waiting_for_input` which IS true now.
@@ -323,7 +323,7 @@ const initApp = () => {
                     // for (...) { next(); if (vm.is_waiting_for_input) ... }
                     // So yes, setting it here is enough.
                     vm.is_waiting_for_input = true;
-                    consoleStore.actions.addEntry(prompt || "Input required:", 'status');
+                    consoleStore.actions.addEntry(`Input > ${prompt || ""}`, 'status');
                     updateToolbarState('input');
                 }));
                 vm.register_builtins(createGuiBuiltins(gui));
