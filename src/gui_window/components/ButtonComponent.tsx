@@ -38,6 +38,7 @@ export const ButtonComponent = (props: { button: Button & { fill?: Color, stroke
             onClick={() => {
                 syncInput({ type: "gui_event", id: props.button.id });
             }}
+            aria-label={props.button.text}
         >
             {props.button.text}
         </button>

@@ -9,6 +9,7 @@ export const RadioComponent = (props: { radio: Radio & { fill?: Color, stroke?: 
         <input type="radio"
             checked={(props.radio as any).val || false}
             name={props.radio.group}
+            aria-label={props.radio.label || "Radio button"}
             style={{
                 position: "absolute",
                 left: `${props.radio.pos.x}px`,

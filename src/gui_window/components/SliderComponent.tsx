@@ -8,6 +8,7 @@ export const SliderComponent = (props: { slider: Slider & { fill?: Color, stroke
     return (
         <input type="range" min="0" max="100"
             value={(props.slider as any).val || 0}
+            aria-label={props.slider.label || "Slider"}
             style={{
                 position: "absolute",
                 left: `${props.slider.pos.x}px`,

@@ -55,18 +55,21 @@ window.addEventListener("message", (event) => {
 const App = () => {
     return (
         <>
-            <div id="gui-window" style={{
-                width: `${guiState.width}px`,
-                height: `${guiState.height}px`,
-                position: "relative",
-                margin: "auto",
-                "margin-top": "auto",
-                "margin-bottom": "10px",
-                background: "white",
-                "box-shadow": "0 0 40px rgba(0,0,0,0.8)",
-                "flex-shrink": 0,
-                cursor: guiState.showCoords ? "crosshair" : "default"
-            }}>
+            <div id="gui-window"
+                role="application"
+                aria-label="PerC GUI Application"
+                style={{
+                    width: `${guiState.width}px`,
+                    height: `${guiState.height}px`,
+                    position: "relative",
+                    margin: "auto",
+                    "margin-top": "auto",
+                    "margin-bottom": "10px",
+                    background: "white",
+                    "box-shadow": "0 0 40px rgba(0,0,0,0.8)",
+                    "flex-shrink": 0,
+                    cursor: guiState.showCoords ? "crosshair" : "default"
+                }}>
                 <Show when={guiState.root}>
                     <ElementRenderer element={guiState.root!} />
                 </Show>

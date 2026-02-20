@@ -8,6 +8,7 @@ export const TextboxComponent = (props: { textbox: Textbox & { fill?: Color, str
     return (
         <input type="text"
             value={inputState[props.textbox.id + "_val"] || ""}
+            aria-label={props.textbox.prompt || "Input"}
             style={{
                 position: "absolute",
                 left: `${props.textbox.pos.x}px`,

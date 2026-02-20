@@ -8,6 +8,7 @@ export const CheckboxComponent = (props: { checkbox: Checkbox & { fill?: Color, 
     return (
         <input type="checkbox"
             checked={(props.checkbox as any).val || false}
+            aria-label={props.checkbox.label || "Checkbox"}
             style={{
                 position: "absolute",
                 left: `${props.checkbox.pos.x}px`,

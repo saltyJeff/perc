@@ -96,15 +96,18 @@ export interface Slider extends Interactable {
     pos: Position
     width: number
     height: number
+    label?: string
 }
 export interface Checkbox extends Interactable {
     type: 'checkbox'
     pos: Position
+    label?: string
 }
 export interface Radio extends Interactable {
     type: 'radio'
     pos: Position
     group: string
+    label?: string
 }
 export interface Textbox extends Interactable {
     type: 'textbox'

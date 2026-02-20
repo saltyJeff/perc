@@ -155,11 +155,12 @@ export const createGuiBuiltins = (gui: GUIManager): Record<string, BuiltinFunc> 
             return new perc_nil();
         },
 
-        'slider': (x, y) => {
-            const err = validateGUIArgs('slider', [x, y], ['number', 'number']);
+        'slider': (x, y, label) => {
+            const err = validateGUIArgs('slider', [x, y, label], ['number', 'number', 'string?']);
             if (err) return err;
             const xVal = (x as any).buffer[0];
             const yVal = (y as any).buffer[0];
+            const labelStr = label instanceof perc_string ? label.to_string() : undefined;
             const id = `slider_${xVal}_${yVal}`;
             const currentVal = gui.getInput(id + '_val') || 0;
 
@@ -169,6 +170,7 @@ export const createGuiBuiltins = (gui: GUIManager): Record<string, BuiltinFunc> 
                 pos: { x: xVal, y: yVal },
                 width: 200,
                 height: 20,
+                label: labelStr,
                 val: currentVal as number
             });
             return new perc_number(currentVal);
@@ -324,11 +326,12 @@ export const createGuiBuiltins = (gui: GUIManager): Record<string, BuiltinFunc> 
             return new perc_nil();
         },
 
-        'textbox': (x, y) => {
-            const err = validateGUIArgs('textbox', [x, y], ['number', 'number']);
+        'textbox': (x, y, prompt) => {
+            const err = validateGUIArgs('textbox', [x, y, prompt], ['number', 'number', 'string?']);
             if (err) return err;
             const xVal = (x as any).buffer[0];
             const yVal = (y as any).buffer[0];
+            const promptStr = prompt instanceof perc_string ? prompt.to_string() : "";
             const id = `textbox_${xVal}_${yVal}`;
             const val = gui.getInput(id + '_val') || "";
 
@@ -338,17 +341,18 @@ export const createGuiBuiltins = (gui: GUIManager): Record<string, BuiltinFunc> 
                 pos: { x: xVal, y: yVal },
                 width: 150,
                 height: 25,
-                prompt: "",
+                prompt: promptStr,
                 val: val as string
             });
             return new perc_string(val);
         },
 
-        'checkbox': (x, y) => {
-            const err = validateGUIArgs('checkbox', [x, y], ['number', 'number']);
+        'checkbox': (x, y, label) => {
+            const err = validateGUIArgs('checkbox', [x, y, label], ['number', 'number', 'string?']);
             if (err) return err;
             const xVal = (x as any).buffer[0];
             const yVal = (y as any).buffer[0];
+            const labelStr = label instanceof perc_string ? label.to_string() : undefined;
             const id = `chk_${xVal}_${yVal}`;
             const val = gui.getInput(id + '_val') || false;
 
@@ -356,17 +360,19 @@ export const createGuiBuiltins = (gui: GUIManager): Record<string, BuiltinFunc> 
                 type: 'checkbox',
                 id,
                 pos: { x: xVal, y: yVal },
+                label: labelStr,
                 val: val as boolean
             });
             return new perc_bool(val);
         },
 
-        'radio': (group, x, y) => {
-            const err = validateGUIArgs('radio', [group, x, y], ['string', 'number', 'number']);
+        'radio': (group, x, y, label) => {
+            const err = validateGUIArgs('radio', [group, x, y, label], ['string', 'number', 'number', 'string?']);
             if (err) return err;
             const groupName = group.to_string();
             const xVal = (x as any).buffer[0];
             const yVal = (y as any).buffer[0];
+            const labelStr = label instanceof perc_string ? label.to_string() : undefined;
             const id = `rad_${groupName}_${xVal}_${yVal}`;
             const val = gui.getInput(id + '_val') || false;
 
@@ -384,6 +390,7 @@ export const createGuiBuiltins = (gui: GUIManager): Record<string, BuiltinFunc> 
                 id,
                 group: groupName,
                 pos: { x: xVal, y: yVal },
+                label: labelStr,
                 val: val as boolean
             });
             return new perc_bool(val);
