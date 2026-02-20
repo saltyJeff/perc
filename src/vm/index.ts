@@ -1,5 +1,5 @@
 import type { opcode } from "./opcodes.ts";
-import { perc_type, perc_bool, perc_err, perc_closure, perc_number, perc_string, perc_list, perc_map, perc_tuple } from "./perc_types.ts";
+import { perc_type, perc_bool, perc_err, perc_closure, perc_number, perc_string, perc_list, perc_map, perc_tuple, perc_native_method } from "./perc_types.ts";
 import type { perc_iterator } from "./perc_types.ts";
 import { Compiler } from "./compiler.ts";
 import { standardBuiltins } from "./builtins.ts";
@@ -103,7 +103,40 @@ export class VM {
     execute_repl(source: string, parser: any) {
         try {
             const tree = parser.parse(source);
-            const compiler = new Compiler(Array.from(this.foreign_funcs.keys()));
+
+            // Collect existing variables to pass to compiler
+            const existingVars: string[] = [];
+            if (this.current_frame && this.current_frame.scope) {
+                // We want all variables reachable from current scope?
+                // Or just the top-level globals if we are in REPL?
+                // REPL usually runs in global scope.
+                // Let's get all variables from the global scope.
+                const globalIdx = this.call_stack.length > 0 ? 0 : -1; // Wait, call stack might be empty.
+                // Logic: get_global_scope returns the bottom-most scope.
+                // But we might be in a function?
+                // REPL execution is top-level.
+                // Just use current_frame.scope identifiers.
+                // But we need to walk up the scope chain?
+                // Scope doesn't expose keys easily if we don't track them.
+                // Scope has `definitions` which is Map<string, ...>.
+                // `values` is Map<string, perc_type>.
+                // `scope.ts` defines `values`.
+                // Let's assume Scope has `values` or `definitions`.
+                // Checking `src/vm/scope.ts` would be good, but `index.ts` uses `this.current_frame.scope.lookup`.
+                // `get_scope_variables` uses `s.values.entries()`.
+                // So `values` exists.
+
+                // We need to gather all names from the scope chain.
+                let s: Scope | null = this.current_frame.scope;
+                while (s) {
+                    for (const k of s.values.keys()) {
+                        existingVars.push(k);
+                    }
+                    s = s.parent;
+                }
+            }
+
+            const compiler = new Compiler(Array.from(this.foreign_funcs.keys()), existingVars);
 
             const result = compiler.compile_repl(source, tree);
 
@@ -238,6 +271,7 @@ export class VM {
             }
 
             try {
+                // console.log(`[Trace] IP: ${this.ip}, Op: ${op.type} ${this.stack.length > 0 ? 'Top: ' + this.stack[this.stack.length-1].to_string() : 'Empty'}`);
                 switch (op.type) {
                     case 'push':
                         this.push(op.imm);
@@ -410,12 +444,36 @@ export class VM {
                         }
                         break;
                     case 'call':
-                        const func = this.pop();
+                        if (this.stack.length < op.nargs + 1) {
+                            this.return_error(new perc_err("Stack underflow in call"));
+                            continue;
+                        }
+                        const func_idx = this.stack.length - 1 - op.nargs;
+                        const func = this.stack[func_idx];
+
                         if (func instanceof perc_err) {
                             // Can't call an error
                             this.return_error(func);
                             continue;
                         }
+
+                        // Handle native methods
+                        if (func instanceof perc_native_method) {
+                            // We need to pop args AND the func.
+                            // Since func is under args, we pop args first.
+                            const native_args: perc_type[] = [];
+                            for (let i = 0; i < op.nargs; i++) {
+                                native_args.push(this.pop());
+                            }
+                            // Now func is at top
+                            this.pop(); // Remove func
+
+                            // call handler
+                            const res = func.handler(...native_args.reverse());
+                            this.push(res);
+                            break;
+                        }
+
                         if (!(func instanceof perc_closure)) {
                             this.return_error(new perc_err("Object is not callable", [op.src_start, op.src_end]));
                             continue;
@@ -423,12 +481,16 @@ export class VM {
 
                         // Arguments are already on the stack. Current frame is where they are.
                         // However, we want to capture their values for the debugger.
-                        // The stack has [..., arg0, arg1, ..., argN]
+                        // The stack has [..., func, arg0, arg1, ..., argN]
+                        // We need to remove func from the stack so the new frame only sees args.
+                        // Splice it out.
+                        this.stack.splice(func_idx, 1);
+
+                        // Capture call args for debugger
                         const call_args: string[] = [];
                         const arg_count = op.nargs;
                         for (let i = 0; i < arg_count; i++) {
-                            // Elements were pushed in order, so the top of stack is the last arg.
-                            // We peek at them relative to the end of the stack.
+                            // Args are now at the top of stack (since func removed)
                             const val = this.stack[this.stack.length - arg_count + i];
                             if (val) call_args.push(val.to_string());
                         }
@@ -682,7 +744,12 @@ export class VM {
         if (this.call_stack.length === 0) {
             this.ip = -1; // Halt
             console.error(err.value);
-            this.events.on_error?.(err.value, err.location); // Report unhandled error
+            let loc: [number, number] | null = null;
+            if (err.location) {
+                if (Array.isArray(err.location)) loc = err.location;
+                else loc = [err.location.start.offset, err.location.end.offset];
+            }
+            this.events.on_error?.(err.value, loc); // Report unhandled error
             return;
         }
 

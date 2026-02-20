@@ -33,9 +33,14 @@ export class Compiler implements ICompiler {
     public foreign_funcs: Set<string>;
     public source: string = "";
 
-    constructor(foreign_funcs: string[] = []) {
+    constructor(foreign_funcs: string[] = [], declared_vars: string[] = []) {
         this.foreign_funcs = new Set(foreign_funcs);
+        // We can't initialize scope here because compile() resets it.
+        // But we can store them to add later.
+        this.predeclared_vars = new Set(declared_vars);
     }
+
+    private predeclared_vars: Set<string>;
 
     private scopes: Set<string>[] = [];
 
@@ -89,6 +94,12 @@ export class Compiler implements ICompiler {
         this.scopes = [];
         this.source = source;
         this.enter_scope(); // Global scope
+
+        // Add predeclared variables
+        const globalCheck = this.scopes[0];
+        for (const v of this.predeclared_vars) {
+            globalCheck.add(v);
+        }
 
         const cursor = tree.cursor();
         if ((cursor.name as string) === "SourceFile") {

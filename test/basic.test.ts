@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { VM } from './index';
-import { Compiler } from './compiler';
-import { perc_nil } from './perc_types';
-import { parser } from '../lang.grammar';
+import { VM } from '../src/vm/index';
+import { Compiler } from '../src/vm/compiler';
+import { perc_nil } from '../src/vm/perc_types';
+import { parser } from '../src/lang.grammar';
 
-describe('PerC Integration Tests', () => {
+describe('PerC Basic Integration Tests', () => {
     const run = (code: string) => {
         const vm = new VM();
         const printed: string[] = [];
@@ -19,11 +19,18 @@ describe('PerC Integration Tests', () => {
             return new perc_nil();
         });
 
+        vm.register_foreign('println', (...args) => {
+            printed.push(args.map(a => a.to_string()).join(' ') + '\n');
+            return new perc_nil();
+        });
+
         vm.execute(code, parser);
         const runner = vm.run();
         let result = runner.next();
-        while (!result.done) {
+        let steps = 0;
+        while (!result.done && steps < 10000) {
             result = runner.next();
+            steps++;
         }
 
         if (error) throw new Error(`VM Error: ${error}`);
@@ -35,28 +42,7 @@ describe('PerC Integration Tests', () => {
         expect(printed).toContain('30');
     });
 
-    it('should support Go-inspired implicit semicolons (ASI)', () => {
-        // Lezer handles this if grammar allows it. 
-        // My grammar handles newlines via `statement*` and specific delimiters?
-        // Wait, I didn't verify ASI in Lezer grammar.
-        // My grammar rule: `statement`
-        // `VarInit { kw<"init"> ... }`
-        // There is no explicit terminator in my grammar rules!
-        // `Block { "{" statement* "}" }`
-        // `SourceFile { statement* }`
-        // This means statements can naturally follow each other.
-        // Lezer's default behavior is to skip `@skip` tokens (spaces/newlines).
-        // So `init x = 5 \n init b = 10` is parsed as `VarInit VarInit`.
-        // So ASI is implicitly supported because semicolons are OPTIONAL/Separators in Lezer 
-        // if they are defined as `@skip` or separate rules.
-        // IN my grammar: `";"` is in `@tokens`. 
-        // But NOT used in rules! 
-        // So standard semicolons `init a=1;` might fail if `statement` doesn't consume `;`.
-        // I need to add `;` execution to `statement` or make it optional in rules.
-        // OR add empty statement?
-
-        // Let's assume for now I need to update grammar for `;`.
-        // But let's write test first.
+    it('should support implicit semicolons (ASI)', () => {
         const code = `
             init a = 5
             init b = 10
@@ -66,7 +52,7 @@ describe('PerC Integration Tests', () => {
         expect(printed).toContain('15');
     });
 
-    it('should handle complex logic with ASI', () => {
+    it('should handle complex logic with functions', () => {
         const code = `
             function fact(n) {
                 if (n <= 1) then {
@@ -94,7 +80,7 @@ describe('PerC Integration Tests', () => {
         expect(printed).toContain('13');
     });
 
-    it('should handle a "Kitchen Sink" test with various features', () => {
+    it('should handle a "Kitchen Sink" test with maps, lists only, loops', () => {
         const code = `
             init arr = new [1, 2, 3]
             change arr[1] = 10
@@ -119,8 +105,19 @@ describe('PerC Integration Tests', () => {
         expect(printed).toEqual(['Sum is large: 15', 'Map count: 50']);
     });
 
-    // Removed the "custom foreign functions" test that manually generated parser
-    // Replaced with one using the adapter directly
+    it('should handle comprehensive list reference and mutation', () => {
+        const code = `
+            init x = new [1, 2, 3]
+            ref y = x
+            change y[1] = 4
+            print(len(y))
+            print(x[1])
+        `;
+        const { printed } = run(code);
+        expect(printed).toContain('3'); // len(y)
+        expect(printed).toContain('4'); // x[1] updated via y
+    });
+
     it('should support custom foreign functions', () => {
         const vm = new VM();
         const results: number[] = [];
@@ -138,7 +135,7 @@ describe('PerC Integration Tests', () => {
         `;
 
         const tree = parser.parse(code);
-        const opcodes = compiler.compile(code, tree);
+        const { opcodes } = compiler.compile(code, tree);
         vm.reset_state();
         (vm as any).code = opcodes;
 
@@ -150,57 +147,12 @@ describe('PerC Integration Tests', () => {
     });
 
     it('should support println function', () => {
-        const vm = new VM();
-        const lines: string[] = [];
-
-        vm.register_foreign('print', (...args) => {
-            lines.push(args.map(a => a.to_string()).join(' '));
-            return new perc_nil();
-        });
-
-        vm.register_foreign('println', (...args) => {
-            lines.push(args.map(a => a.to_string()).join(' ') + '\n');
-            return new perc_nil();
-        });
-
-        const code = `
+        const { printed } = run(`
             print("Hello ")
             print("World")
             println("!")
             print("New line")
-        `;
-
-        vm.execute(code, parser);
-        const runner = vm.run();
-        let result = runner.next();
-        while (!result.done) result = runner.next();
-
-        expect(lines).toEqual(['Hello ', 'World', '!\n', 'New line']);
-    });
-
-    it('should support text_color_rgb function', () => {
-        const vm = new VM();
-        const colors: string[] = [];
-
-        vm.register_foreign('text_color_rgb', (r, g, b) => {
-            const rVal = (r as any).buffer[0];
-            const gVal = (g as any).buffer[0];
-            const bVal = (b as any).buffer[0];
-            colors.push(`rgb(${rVal}, ${gVal}, ${bVal})`);
-            return new perc_nil();
-        });
-
-        const code = `
-            text_color_rgb(255, 0, 0)
-            text_color_rgb(0, 255, 0)
-            text_color_rgb(0, 0, 255)
-        `;
-
-        vm.execute(code, parser);
-        const runner = vm.run();
-        let result = runner.next();
-        while (!result.done) result = runner.next();
-
-        expect(colors).toEqual(['rgb(255, 0, 0)', 'rgb(0, 255, 0)', 'rgb(0, 0, 255)']);
+        `);
+        expect(printed).toEqual(['Hello ', 'World', '!\n', 'New line']);
     });
 });

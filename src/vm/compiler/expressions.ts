@@ -51,10 +51,12 @@ export function compileCallExpression(compiler: ICompiler, cursor: TreeCursor) {
         return;
     }
 
+    // Generic call
+    // VM expects: [func, arg1, arg2, ...]
+    compiler.visit(cursor); // Visit Callee (pushes func)
     cursor.nextSibling(); // ArgumentList
-    const gArgs = compiler.visitArgumentList(cursor);
-    cursor.prevSibling(); // Callee
-    compiler.visit(cursor);
+    const gArgs = compiler.visitArgumentList(cursor); // Visit Args (pushes args)
+
     compiler.emit({ type: 'call', nargs: gArgs }, loc);
     cursor.parent();
 }
@@ -169,7 +171,8 @@ export function compileFunction(compiler: ICompiler, cursor: TreeCursor, type: "
         name: fName
     }, loc);
     if (type === "FunctionDeclaration") {
-        compiler.declare_var(fName, loc);
+        // Declaration happened in hoisting pass.
+        // We just need to emit the init to bind the closure to the variable.
         compiler.emit({ type: 'init', name: fName, catch: false }, loc);
     }
     cursor.parent();

@@ -1,10 +1,11 @@
-import { describe, it, expect } from 'vitest';
-import { VM } from './index';
-import { parser } from '../lang.grammar';
-import { perc_list, perc_map, perc_tuple } from './perc_types';
+import { describe, it, expect, vi } from 'vitest';
+import { VM } from '../src/vm/index';
+import { parser } from '../src/lang.grammar';
+import { perc_list, perc_map, perc_tuple } from '../src/vm/perc_types';
 
 describe('Expanded Suite', () => {
     it('should error on double initialization at compile time', () => {
+        const spy = vi.spyOn(console, 'error').mockImplementation(() => { });
         const vm = new VM();
         const code = `
             init k = 1;
@@ -13,6 +14,7 @@ describe('Expanded Suite', () => {
         expect(() => {
             vm.execute(code, parser);
         }).toThrow(/Variable 'k' already declared/);
+        spy.mockRestore();
     });
 
     it('should allow re-initialization in a new block (shadowing)', () => {
@@ -57,7 +59,7 @@ describe('Expanded Suite', () => {
     it('should initialize tuple datatype correctly', () => {
         const vm = new VM();
         const code = `
-            init j = new (|1, 2, 3|);
+            init j = (|1, 2, 3|);
         `;
         vm.execute(code, parser);
         const runner = vm.run();

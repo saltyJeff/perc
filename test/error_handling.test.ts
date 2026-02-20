@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { VM } from './index';
-import { parser } from '../lang.grammar';
-import { perc_string, perc_err } from './perc_types';
+import { VM } from '../src/vm/index';
+import { parser } from '../src/lang.grammar';
+import { perc_string, perc_err } from '../src/vm/perc_types';
 
 describe('Error Handling', () => {
     it('should support typeof operator', () => {

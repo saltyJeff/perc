@@ -1,7 +1,7 @@
-import { VM } from "./index.ts";
-import { perc_bool } from "./perc_types.ts";
+import { VM } from "../src/vm/index.ts";
+import { perc_bool } from "../src/vm/perc_types.ts";
 import { expect, test, describe } from "vitest";
-import { parser } from "../lang.grammar";
+import { parser } from "../src/lang.grammar";
 
 function evalCode(code: string) {
     const vm = new VM();
@@ -44,7 +44,7 @@ describe("Equality Operators", () => {
         // Same list
         const listSame = evalCode(`
             init a = new [1];
-            init b = a;
+            ref b = a;
             init res = a is b;
         `);
         expect((listSame as perc_bool).value).toBe(true);

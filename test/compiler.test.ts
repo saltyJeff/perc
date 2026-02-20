@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { Compiler } from './compiler.ts';
-import { parser } from '../lang.grammar';
+import { Compiler } from '../src/vm/compiler.ts';
+import { parser } from '../src/lang.grammar';
 
 describe('Compiler', () => {
     const compiler = new Compiler();
@@ -8,7 +8,7 @@ describe('Compiler', () => {
     it('should compile basic variable initialization', () => {
         const code = "init x = 10";
         const tree = parser.parse(code);
-        const opcodes = compiler.compile(code, tree);
+        const { opcodes } = compiler.compile(code, tree);
 
         expect(opcodes.length).toBeGreaterThan(0);
         // Expect push 10 and init x
@@ -21,7 +21,7 @@ describe('Compiler', () => {
     it('should compile arithmetic expressions', () => {
         const code = "init y = 5 + 3";
         const tree = parser.parse(code);
-        const opcodes = compiler.compile(code, tree);
+        const { opcodes } = compiler.compile(code, tree);
 
         const binaryOp = opcodes.find(op => op.type === 'binary_op');
         expect(binaryOp).toBeDefined();
@@ -31,7 +31,7 @@ describe('Compiler', () => {
     it('should compile if statements', () => {
         const code = "if (true) then { init x = 1 }";
         const tree = parser.parse(code);
-        const opcodes = compiler.compile(code, tree);
+        const { opcodes } = compiler.compile(code, tree);
 
         expect(opcodes.some(op => op.type === 'jump_if_false')).toBe(true);
         expect(opcodes.some(op => op.type === 'init')).toBe(true);

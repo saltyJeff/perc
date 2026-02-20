@@ -1,12 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
-import { VM } from './index';
-import { parser } from '../lang.grammar';
-import { perc_number, perc_err } from './perc_types';
+import { VM } from '../src/vm/index';
+import { parser } from '../src/lang.grammar';
+import { perc_number, perc_err } from '../src/vm/perc_types';
 
 describe('Error Handling Refactor', () => {
 
     it('should detect undefined variable as compile error', () => {
         const vm = new VM();
+        vm.register_foreign("print", () => new perc_err("mock"));
         const source = `
             init x = 10;
             print(y);
@@ -52,7 +53,9 @@ describe('Error Handling Refactor', () => {
     });
 
     it('should detect accessing inner scope variable from outer scope', () => {
+        const spy = vi.spyOn(console, 'error').mockImplementation(() => { });
         const vm = new VM();
+        vm.register_foreign("print", () => new perc_err("mock"));
         const source = `
             if (true) then {
                 init z = 30;
@@ -66,6 +69,7 @@ describe('Error Handling Refactor', () => {
         } catch (e: any) {
             expect(e.message).toContain("Variable 'z' is not defined");
         }
+        spy.mockRestore();
     });
 
     it('should return runtime error instead of throwing', () => {

@@ -1,7 +1,7 @@
-import { VM } from "./index.ts";
-import { perc_number, perc_string, perc_bool, perc_nil } from "./perc_types.ts";
+import { VM } from "../src/vm/index.ts";
+import { perc_number, perc_string, perc_bool, perc_nil } from "../src/vm/perc_types.ts";
 import { expect, test, describe } from "vitest";
-import { parser } from "../lang.grammar";
+import { parser } from "../src/lang.grammar";
 
 describe("Extended Features", () => {
     const run = (code: string) => {

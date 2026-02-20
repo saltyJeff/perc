@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { VM } from './index';
-import { perc_map } from './perc_types';
+import { VM } from '../src/vm/index';
+import { perc_map } from '../src/vm/perc_types';
 import { parser } from "../lang.grammar";
 
 describe('Types Update', () => {

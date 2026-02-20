@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { VM } from './index';
-import { parser } from "../lang.grammar";
-import { perc_string } from './perc_types';
+import { VM } from '../src/vm/index';
+import { parser } from "../src/lang.grammar";
+import { perc_string } from '../src/vm/perc_types';
 
 describe('Iterator Features', () => {
     let vm: VM;

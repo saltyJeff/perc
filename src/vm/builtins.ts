@@ -1,4 +1,4 @@
-import { perc_type, perc_number, perc_string, perc_map, perc_err } from "./perc_types";
+import { perc_type, perc_number, perc_string, perc_map, perc_err, perc_range, perc_list, perc_tuple } from "./perc_types";
 
 export type BuiltinFunc = (...args: perc_type[]) => perc_type;
 
@@ -25,6 +25,51 @@ standardBuiltins['float'] = standardBuiltins['f64'];
 // Clone
 standardBuiltins['clone'] = (arg: perc_type) => {
     return arg.clone();
+};
+
+// Global utilities
+standardBuiltins['len'] = (arg: perc_type) => {
+    if (arg instanceof perc_list) return new perc_number(arg.elements.length);
+    if (arg instanceof perc_string) return new perc_number(arg.value.length);
+    if (arg instanceof perc_map) return new perc_number(arg.data.size);
+    if (arg instanceof perc_tuple) return new perc_number(arg.elements.length);
+    return new perc_err(`Type '${arg.type}' has no length`);
+};
+
+standardBuiltins['str'] = (arg: perc_type) => {
+    return new perc_string(arg.to_string());
+};
+
+standardBuiltins['range'] = (...args: perc_type[]) => {
+    if (args.length === 0) return new perc_err("range() expects at least 1 argument");
+
+    let start = 0;
+    let end = 0;
+    let step = 1;
+
+    if (args.length === 1) {
+        if (args[0] instanceof perc_number) {
+            end = args[0].buffer[0];
+        } else {
+            return new perc_err("range() arguments must be numbers");
+        }
+    } else if (args.length >= 2) {
+        if (args[0] instanceof perc_number && args[1] instanceof perc_number) {
+            start = args[0].buffer[0];
+            end = args[1].buffer[0];
+        } else {
+            return new perc_err("range() arguments must be numbers");
+        }
+        if (args.length >= 3) {
+            if (args[2] instanceof perc_number) {
+                step = args[2].buffer[0];
+            } else {
+                return new perc_err("range() arguments must be numbers");
+            }
+        }
+    }
+
+    return new perc_range(start, end, step);
 };
 
 // Color functions

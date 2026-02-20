@@ -1,0 +1,178 @@
+
+[1m[44m DEV [49m[22m [34mv4.0.18 [39m[90mE:/perc[39m
+
+[90mstdout[2m | src/vm/builtins_methods.test.ts[2m > [22m[2mPerC Built-in Methods[2m > [22m[2mshould support list methods: push, pop, len
+[22m[39m[Trace] IP: 0, Op: push Empty
+[Trace] IP: 1, Op: push Top: 1
+[Trace] IP: 2, Op: new_array Top: 2
+[Trace] IP: 3, Op: init Top: [list@1]
+[Trace] IP: 4, Op: load Empty
+[Trace] IP: 5, Op: member_load Top: [list@2]
+[Trace] IP: 6, Op: push Top: <native method push>
+[Trace] IP: 7, Op: call Top: 3
+stderr | src/vm/builtins_methods.test.ts > PerC Built-in Methods > should support list methods: push, pop, len
+Object is not callable
+
+
+ [31mΓ¥»[39m src/vm/builtins_methods.test.ts [2m([22m[2m5 tests[22m[2m | [22m[31m1 failed[39m[2m | [22m[33m4 skipped[39m[2m)[22m[32m 6[2mms[22m[39m
+[31m     [31m├ù[31m should support list methods: push, pop, len[39m[32m 5[2mms[22m[39m
+     [2m[90mΓåô[39m[22m should support list pop
+     [2m[90mΓåô[39m[22m should support map methods: keys, values, len
+     [2m[90mΓåô[39m[22m should support range()
+     [2m[90mΓåô[39m[22m should support string methods: upper, len
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 1 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  src/vm/builtins_methods.test.ts > PerC Built-in Methods > should support list methods: push, pop, len
+AssertionError: expected '<native method push>' to be '3' // Object.is equality
+
+Expected: "3"
+Received: "<native method push>"
+
+ Γ¥» src/vm/builtins_methods.test.ts:40:34
+     38| 
+     39|         const res = runVM(code);
+     40|         expect(res?.to_string()).toBe("3");
+       |                                  ^
+     41|     });
+     42| 
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/1]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[33m4 skipped[39m[90m (5)[39m
+[2m   Start at [22m 16:06:48
+[2m   Duration [22m 605ms[2m (transform 87ms, setup 0ms, import 106ms, tests 6ms, environment 401ms)[22m
+
+[1m[41m FAIL [49m[22m [31mTests failed. Watching for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/vm/index.ts [22m[34mx1 [34m[39m
+       [2m Filename pattern: [22m[34msrc/vm/builtins_methods.test.ts[39m
+       [2m Test name pattern: [22m[34m/should support list methods: push, pop, len/[39m
+
+4:07:40 PM [vite] (client) warning: This case clause will never be evaluated because it duplicates an earlier case clause
+412 |                          break;
+413 |                      case 'call':
+414 |                      case 'call':
+    |                           ^
+415 |                          if (this.stack.length < op.nargs + 1) {
+416 |                              this.return_error(new perc_err("Stack underflow in call"));
+
+  Plugin: vite:esbuild
+  File: E:/perc/src/vm/index.ts
+[90mstdout[2m | src/vm/builtins_methods.test.ts[2m > [22m[2mPerC Built-in Methods[2m > [22m[2mshould support list methods: push, pop, len
+[22m[39m[Trace] IP: 0, Op: push Empty
+[Trace] IP: 1, Op: push Top: 1
+[Trace] IP: 2, Op: new_array Top: 2
+[Trace] IP: 3, Op: init Top: [list@1]
+[Trace] IP: 4, Op: load Empty
+[Trace] IP: 5, Op: member_load Top: [list@2]
+[Trace] IP: 6, Op: push Top: <native method push>
+[Trace] IP: 7, Op: call Top: 3
+[Trace] IP: 8, Op: pop Top: 3
+[Trace] IP: 9, Op: load Empty
+[Trace] IP: 10, Op: call_foreign Top: [list@2]
+
+ [32mΓ£ô[39m src/vm/builtins_methods.test.ts [2m([22m[2m5 tests[22m[2m | [22m[33m4 skipped[39m[2m)[22m[32m 3[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m1 passed[39m[22m[2m | [22m[33m4 skipped[39m[90m (5)[39m
+[2m   Start at [22m 16:07:39
+[2m   Duration [22m 57ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/vm/index.ts [22m[34mx2 [34m[39m
+       [2m Filename pattern: [22m[34msrc/vm/builtins_methods.test.ts[39m
+       [2m Test name pattern: [22m[34m/should support list methods: push, pop, len/[39m
+
+[90mstdout[2m | src/vm/builtins_methods.test.ts[2m > [22m[2mPerC Built-in Methods[2m > [22m[2mshould support list methods: push, pop, len
+[22m[39m[Trace] IP: 0, Op: push Empty
+[Trace] IP: 1, Op: push Top: 1
+[Trace] IP: 2, Op: new_array Top: 2
+[Trace] IP: 3, Op: init Top: [list@1]
+[Trace] IP: 4, Op: load Empty
+[Trace] IP: 5, Op: member_load Top: [list@2]
+[Trace] IP: 6, Op: push Top: <native method push>
+[Trace] IP: 7, Op: call Top: 3
+[Trace] IP: 8, Op: pop Top: 3
+[Trace] IP: 9, Op: load Empty
+[Trace] IP: 10, Op: call_foreign Top: [list@2]
+
+ [32mΓ£ô[39m src/vm/builtins_methods.test.ts [2m([22m[2m5 tests[22m[2m | [22m[33m4 skipped[39m[2m)[22m[32m 3[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m1 passed[39m[22m[2m | [22m[33m4 skipped[39m[90m (5)[39m
+[2m   Start at [22m 16:07:47
+[2m   Duration [22m 36ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/vm/index.ts [22m[34mx3 [34m[39m
+       [2m Filename pattern: [22m[34msrc/vm/builtins_methods.test.ts[39m
+       [2m Test name pattern: [22m[34m/should support list methods: push, pop, len/[39m
+
+ [32mΓ£ô[39m src/vm/builtins_methods.test.ts [2m([22m[2m5 tests[22m[2m | [22m[33m4 skipped[39m[2m)[22m[32m 2[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m1 passed[39m[22m[2m | [22m[33m4 skipped[39m[90m (5)[39m
+[2m   Start at [22m 16:08:23
+[2m   Duration [22m 31ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/vm/index.ts [22m[34mx4 [34m[39m
+       [2m Filename pattern: [22m[34msrc/vm/builtins_methods.test.ts[39m
+       [2m Test name pattern: [22m[34m/should support list methods: push, pop, len/[39m
+
+ [32mΓ£ô[39m src/vm/builtins_methods.test.ts [2m([22m[2m5 tests[22m[2m | [22m[33m4 skipped[39m[2m)[22m[32m 2[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m1 passed[39m[22m[2m | [22m[33m4 skipped[39m[90m (5)[39m
+[2m   Start at [22m 16:08:33
+[2m   Duration [22m 33ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/vm/builtins.ts [22m[34mx5 [34m[39m
+       [2m Filename pattern: [22m[34msrc/vm/builtins_methods.test.ts[39m
+       [2m Test name pattern: [22m[34m/should support list methods: push, pop, len/[39m
+
+ [32mΓ£ô[39m src/vm/builtins_methods.test.ts [2m([22m[2m5 tests[22m[2m | [22m[33m4 skipped[39m[2m)[22m[32m 3[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m1 passed[39m[22m[2m | [22m[33m4 skipped[39m[90m (5)[39m
+[2m   Start at [22m 16:08:34
+[2m   Duration [22m 25ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/vm/perc_types.ts [22m[34mx6 [34m[39m
+       [2m Filename pattern: [22m[34msrc/vm/builtins_methods.test.ts[39m
+       [2m Test name pattern: [22m[34m/should support list methods: push, pop, len/[39m
+
+ [32mΓ£ô[39m src/vm/builtins_methods.test.ts [2m([22m[2m5 tests[22m[2m | [22m[33m4 skipped[39m[2m)[22m[32m 2[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m1 passed[39m[22m[2m | [22m[33m4 skipped[39m[90m (5)[39m
+[2m   Start at [22m 16:09:07
+[2m   Duration [22m 29ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/vm/index.ts [22m[34mx7 [34m[39m
+       [2m Filename pattern: [22m[34msrc/vm/builtins_methods.test.ts[39m
+       [2m Test name pattern: [22m[34m/should support list methods: push, pop, len/[39m
+
+ [32mΓ£ô[39m src/vm/builtins_methods.test.ts [2m([22m[2m5 tests[22m[2m | [22m[33m4 skipped[39m[2m)[22m[32m 2[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m1 passed[39m[22m[2m | [22m[33m4 skipped[39m[90m (5)[39m
+[2m   Start at [22m 16:09:20
+[2m   Duration [22m 31ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+[33mTest removed...[39m[2m [ src/vm/builtins_methods.test.ts ]
+[22m

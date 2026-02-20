@@ -1,13 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { Compiler } from './compiler';
-import { parser } from '../lang.grammar';
-import { PercCompileError } from '../errors';
+import { Compiler } from '../src/vm/compiler';
+import { parser } from '../src/lang.grammar';
+import { PercCompileError } from '../src/errors';
 
 describe('Compiler Error Handling', () => {
     const compile = (code: string) => {
         const compiler = new Compiler();
         const tree = parser.parse(code);
-        return compiler.compile(code, tree);
+        const result = compiler.compile(code, tree);
+        if (result.errors.length > 0) {
+            throw result.errors[0];
+        }
+        return result;
     };
 
     it('should throw error for missing "then" in if statement', () => {

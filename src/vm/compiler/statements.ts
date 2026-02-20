@@ -9,39 +9,85 @@ export function compileSourceFileOrBlock(compiler: ICompiler, cursor: TreeCursor
     const loc = { start: cursor.from, end: cursor.to };
     const end = cursor.to;
 
-    if (type === "Block") {
-        compiler.enter_scope();
-        compiler.emit({ type: 'enter_scope' }, loc);
-    }
+    if (type === "Block" || type === "SourceFile") {
+        if (type === "Block") {
+            compiler.enter_scope();
+            compiler.emit({ type: 'enter_scope' }, loc);
+        }
 
-    if (cursor.firstChild()) {
-        do {
-            const n = cursor.name as string;
-            if (n === "⚠") {
-                throw new PercCompileError(
-                    `Unexpected syntax in ${type}. check for missing ';' or '}'`,
-                    getLocation(compiler.source, cursor.from, cursor.to)
-                );
+        // Pass 1: Hoist Function Declarations
+        if (cursor.firstChild()) {
+            do {
+                const nodeName = cursor.name as string;
+                let isFuncDecl = false;
+                let parentIsStatement = false;
+
+                if (nodeName === "FunctionDeclaration") {
+                    isFuncDecl = true;
+                } else if (nodeName === "Statement") {
+                    if (cursor.firstChild()) {
+                        if ((cursor.name as string) === "FunctionDeclaration") {
+                            isFuncDecl = true;
+                            parentIsStatement = true;
+                        } else {
+                            cursor.parent(); // Back to Statement
+                        }
+                    }
+                }
+
+                if (isFuncDecl) {
+                    cursor.firstChild(); // function
+                    cursor.nextSibling(); // Identifier
+                    const funcName = compiler.source.slice(cursor.from, cursor.to);
+                    const funcLoc = { start: cursor.from, end: cursor.to };
+
+                    try {
+                        compiler.declare_var(funcName, funcLoc);
+                    } catch (e) { /* ignore */ }
+
+                    cursor.parent(); // Back to FunctionDeclaration
+                }
+
+                if (parentIsStatement) {
+                    cursor.parent(); // Back to Statement
+                }
+            } while (cursor.nextSibling());
+            cursor.parent(); // Back to Block/SourceFile
+        }
+
+        // Pass 2: Compile all statements
+        if (cursor.firstChild()) {
+            do {
+                const n = cursor.name as string;
+                if (n === "⚠") {
+                    throw new PercCompileError(
+                        `Unexpected syntax in ${type}. check for missing ';' or '}'`,
+                        getLocation(compiler.source, cursor.from, cursor.to)
+                    );
+                }
+                if (n !== "{" && n !== "}" && n !== ";" && n !== "LineComment" && n !== "BlockComment") {
+                    compiler.visit(cursor);
+                }
+            } while (cursor.nextSibling());
+
+            if (type === "Block") {
+                if ((cursor.name as string) !== "}") {
+                    throw new PercCompileError(
+                        "Missing closing '}' for block",
+                        getLocation(compiler.source, end, end)
+                    );
+                }
             }
-            if (n !== "{" && n !== "}" && n !== ";" && n !== "LineComment" && n !== "BlockComment") {
-                compiler.visit(cursor);
-            }
-        } while (cursor.nextSibling());
+            cursor.parent();
+        }
 
         if (type === "Block") {
-            if ((cursor.name as string) !== "}") {
-                throw new PercCompileError(
-                    "Missing closing '}' for block",
-                    getLocation(compiler.source, end, end)
-                );
-            }
+            compiler.emit({ type: 'exit_scope' }, loc);
+            compiler.exit_scope();
         }
-        cursor.parent();
-    }
-
-    if (type === "Block") {
-        compiler.emit({ type: 'exit_scope' }, loc);
-        compiler.exit_scope();
+    } else {
+        // Fallback for non-block/sourcefile nodes (shouldn't happen for this function)
+        compiler.visit(cursor);
     }
 }
 
