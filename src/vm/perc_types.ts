@@ -395,7 +395,7 @@ export class perc_list extends perc_type {
         };
     }
     to_string(): string {
-        return `[list@${this.pseudoAddress}]`;
+        return "[" + this.elements.map(e => e.to_string()).join(", ") + "]";
     }
 }
 
@@ -499,7 +499,10 @@ export class perc_map extends perc_type {
         return m;
     }
     to_string(): string {
-        return `{map@${this.pseudoAddress}}`;
+        const entries = Array.from(this.data.entries())
+            .map(([k, v]) => `${k}: ${v.to_string()}`)
+            .join(", ");
+        return "{" + entries + "}";
     }
     get_iterator(): perc_iterator | perc_err {
         const keys = Array.from(this.data.keys());

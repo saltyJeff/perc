@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { VM } from '../src/vm/index';
 import { perc_map } from '../src/vm/perc_types';
-import { parser } from "../lang.grammar";
+import { parser } from "../src/lang.grammar";
 
 describe('Types Update', () => {
     let vm: VM;
@@ -25,14 +25,14 @@ describe('Types Update', () => {
 
     describe('Immutable Tuples', () => {
         it('should create tuples with (| |) syntax', () => {
-            run(`init t = new (| 10, 20, 30 |)`);
+            run(`init t = (| 10, 20, 30 |)`);
             const t = getVar('t');
             expect(t?.to_string()).toBe('(| 10, 20, 30 |)');
         });
 
         it('should support 1-based indexing', () => {
             run(`
-                init t = new (| 10, 20, 30 |)
+                init t = (| 10, 20, 30 |)
                 init first = t[1]
                 init second = t[2]
                 init third = t[3]
@@ -48,7 +48,7 @@ describe('Types Update', () => {
                 on_error: (msg) => { lastError = msg; }
             });
             run(`
-                init t = new (| 10, 20, 30 |)
+                init t = (| 10, 20, 30 |)
                 init zero = t[0]
             `);
             expect(lastError).toContain('Index out of bounds');
@@ -60,7 +60,7 @@ describe('Types Update', () => {
                 on_error: (msg) => { lastError = msg; }
             });
             run(`
-                init t = new (| 10, 20 |)
+                init t = (| 10, 20 |)
                 change t[1] = 99
             `);
             expect(lastError).toContain('Tuples are immutable');

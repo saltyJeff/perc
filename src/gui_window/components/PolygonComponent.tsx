@@ -1,6 +1,7 @@
 import { createMemo, Show } from "solid-js";
 import { Color, Position } from "../gui_cmds";
 import { useResolvedStyle } from "../style_context";
+import { getAccessibilityLabel } from "../gui_window_utils";
 
 export const PolygonComponent = (props: { polygon: { fill?: Color, stroke?: Color, strokeWidth?: number, pos: Position[] } }) => {
     const style = useResolvedStyle(props.polygon);
@@ -19,13 +20,15 @@ export const PolygonComponent = (props: { polygon: { fill?: Color, stroke?: Colo
 
     return (
         <Show when={bounds()}>
-            <div style={{
-                position: "absolute",
-                left: `${bounds()!.minX}px`,
-                top: `${bounds()!.minY}px`,
-                width: `${bounds()!.w}px`,
-                height: `${bounds()!.h}px`
-            }}>
+            <div
+                aria-label={getAccessibilityLabel('polygon', props.polygon, style)}
+                style={{
+                    position: "absolute",
+                    left: `${bounds()!.minX}px`,
+                    top: `${bounds()!.minY}px`,
+                    width: `${bounds()!.w}px`,
+                    height: `${bounds()!.h}px`
+                }}>
                 <svg width="100%" height="100%" style={{ overflow: "visible", "pointer-events": "none" }}>
                     <polygon points={bounds()!.pointsStr}
                         fill={style.fill()}

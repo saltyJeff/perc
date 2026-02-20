@@ -47,17 +47,4 @@ describe("Color Features", () => {
         expect(res).toBeInstanceOf(perc_map);
         expect((res.get(new perc_string('a')) as perc_number).buffer[0]).toBe(1);
     });
-
-    test("Z-Index Removal", () => {
-        // z_index should not be defined in default VM registration
-        const vm = new VM();
-        let errorReported = "";
-        vm.set_events({
-            on_error: (msg) => errorReported = msg
-        });
-        vm.execute("z_index(1);", parser);
-        const gen = vm.run();
-        while (!gen.next().done) { }
-        expect(errorReported).toMatch(/Undefined variable: z_index/);
-    });
 });

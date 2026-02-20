@@ -23,25 +23,25 @@ export const ElementRenderer = (props: { element: RenderElement }) => {
                 <GroupComponent group={props.element as RenderGroup} />
             </Match>
             <Match when={props.element.type === 'rect'}>
-                <div aria-hidden="true"><RectComponent rect={props.element as Rect & StyleProps} /></div>
+                <RectComponent rect={props.element as Rect & StyleProps} />
             </Match>
             <Match when={props.element.type === 'circle'}>
-                <div aria-hidden="true"><CircleComponent circle={props.element as Circle & StyleProps} /></div>
+                <CircleComponent circle={props.element as Circle & StyleProps} />
             </Match>
             <Match when={props.element.type === 'line'}>
-                <div aria-hidden="true"><LineComponent line={props.element as Line & StyleProps} /></div>
+                <LineComponent line={props.element as Line & StyleProps} />
             </Match>
             <Match when={props.element.type === 'text'}>
                 <TextComponent text={props.element as Text & StyleProps} />
             </Match>
             <Match when={props.element.type === 'image'}>
-                <div aria-hidden="true"><ImageComponent image={props.element as Image & StyleProps} /></div>
+                <ImageComponent image={props.element as Image & StyleProps} />
             </Match>
             <Match when={props.element.type === 'sprite'}>
-                <div aria-hidden="true"><SpriteComponent sprite={props.element as any} /></div>
+                <SpriteComponent sprite={props.element as any} />
             </Match>
             <Match when={props.element.type === 'polygon'}>
-                <div aria-hidden="true"><PolygonComponent polygon={props.element as any} /></div>
+                <PolygonComponent polygon={props.element as any} />
             </Match>
             <Match when={props.element.type === 'button'}>
                 <ButtonComponent button={props.element as Button & StyleProps} />

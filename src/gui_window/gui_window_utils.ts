@@ -83,3 +83,22 @@ export function multiplyMatrices(m1: number[], m2: number[]): number[] {
     }
     return result;
 }
+export function getAccessibilityLabel(type: string, props: any, style: any): string {
+    const color = style.fill?.() !== 'transparent' ? style.fill?.() : style.stroke?.();
+    const pos = props.pos || props.p1;
+    let label = `${type} @ (${pos?.x}, ${pos?.y})`;
+
+    if (type === 'circle') {
+        label = `circle @ (${props.pos.x}, ${props.pos.y}) radius ${props.radius} color ${color}`;
+    } else if (type === 'rect') {
+        label = `rectangle @ (${props.pos.x}, ${props.pos.y}) ${props.width}x${props.height} color ${color}`;
+    } else if (type === 'line') {
+        label = `line from (${props.p1.x}, ${props.p1.y}) to (${props.p2.x}, ${props.p2.y}) color ${style.stroke()}`;
+    } else if (type === 'polygon') {
+        label = `polygon with ${props.pos.length} points color ${color}`;
+    } else if (type === 'text') {
+        label = `text "${props.text}" @ (${props.pos.x}, ${props.pos.y}) color ${color}`;
+    }
+
+    return label;
+}

@@ -79,7 +79,7 @@ export const PercValue = (props: PercValueProps) => {
                     >
                         ▶
                     </button>
-                    <span class={styles.typeName}>[{val.type}]</span> <span class={styles.preview}>Length: {elements.length}</span>
+                    <span class={styles.typeName}>[{val.type}@{val.pseudoAddress}]</span> <span class={styles.preview}>Length: {elements.length}</span>
                 </span>
             );
         }
@@ -96,7 +96,7 @@ export const PercValue = (props: PercValueProps) => {
                     >
                         ▶
                     </button>
-                    <span class={styles.typeName}>[{val.type}]</span>
+                    <span class={styles.typeName}>[{val.type}@{val.pseudoAddress}]</span>
                 </div>
                 <div class={styles.objectBody}>
                     <For each={elements}>
@@ -120,7 +120,7 @@ export const PercValue = (props: PercValueProps) => {
                     >
                         ▶
                     </button>
-                    <span class={styles.typeName}>[{val.type}]</span> <span class={styles.preview}>Size: {entries.length}</span>
+                    <span class={styles.typeName}>[{val.type}@{val.pseudoAddress}]</span> <span class={styles.preview}>Size: {entries.length}</span>
                 </span>
             );
         }
@@ -137,7 +137,7 @@ export const PercValue = (props: PercValueProps) => {
                     >
                         ▶
                     </button>
-                    <span class={styles.typeName}>[{val.type}]</span>
+                    <span class={styles.typeName}>[{val.type}@{val.pseudoAddress}]</span>
                 </div>
                 <div class={styles.objectBody}>
                     <For each={entries}>

@@ -1,5 +1,6 @@
 import { createMemo } from "solid-js";
 import { Sprite, Color } from "../gui_cmds";
+import { getAccessibilityLabel } from "../gui_window_utils";
 
 const spriteCache = new Map<string, string>();
 function generateSpriteDataUrl(pixels: Color[], w: number, h: number): string {
@@ -35,13 +36,17 @@ export const SpriteComponent = (props: { sprite: Sprite & { fill?: Color, stroke
     const url = createMemo(() => generateSpriteDataUrl(props.sprite.data, props.sprite.width, props.sprite.height));
 
     return (
-        <img src={url()} style={{
-            position: "absolute",
-            left: `${props.sprite.pos.x}px`,
-            top: `${props.sprite.pos.y}px`,
-            width: `${props.sprite.width}px`,
-            height: `${props.sprite.height}px`,
-            "image-rendering": "pixelated"
-        }} />
+        <div
+            aria-label={getAccessibilityLabel('sprite', props.sprite, {})}
+            style={{
+                position: "absolute",
+                left: `${props.sprite.pos.x}px`,
+                top: `${props.sprite.pos.y}px`,
+                width: `${props.sprite.width}px`,
+                height: `${props.sprite.height}px`
+            }}
+        >
+            <img src={url()} style={{ "image-rendering": "pixelated" }} />
+        </div>
     );
 };
