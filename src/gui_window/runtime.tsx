@@ -110,13 +110,14 @@ const App = () => {
                 </Show>
             </div>
             <div style={{
-                color: "#888",
+                color: "#fff",
                 "font-size": "12px",
                 "margin-bottom": "auto",
                 "padding-bottom": "20px",
                 "text-align": "center",
                 "max-width": "80%",
-                "font-style": "italic"
+                "font-style": "italic",
+                "font-weight": "500"
             }}>
                 Screen not updating? Try minimizing this window so that both the IDE window and this window are visible.
             </div>
